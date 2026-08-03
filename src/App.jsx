@@ -1,0 +1,273 @@
+import React, { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
+import FinancialNavTabs from './components/FinancialNavTabs';
+import Dashline from './components/Dashline';
+import CardsModule from './components/CardsModule';
+import SummaryCards from './components/SummaryCards';
+import BankAccounts from './components/BankAccounts';
+import TransactionForm from './components/TransactionForm';
+import TransactionTable from './components/TransactionTable';
+import { supabase } from './lib/supabaseClient';
+import { Bell, CreditCard, Sparkles } from 'lucide-react';
+
+const MOCK_ACCOUNTS = [
+  { id: 'acc-1', name: 'Nubank', type: 'corrente', balance: 5420.50 },
+  { id: 'acc-2', name: 'Itaú Personnalité', type: 'investimentos', balance: 12500.00 },
+  { id: 'acc-3', name: 'Dinheiro Físico', type: 'wallet', balance: 350.00 }
+];
+
+const MOCK_TRANSACTIONS = [
+  { id: 't-1', date: '2026-08-01', type: 'expense', category: 'Alimentação', accountId: 'acc-1', payee: 'Supermercado Carrefour', product: 'Compras do mês', value: 450.80, status: 'paid' },
+  { id: 't-2', date: '2026-08-02', type: 'expense', category: 'Lazer', accountId: 'acc-1', payee: 'Restaurante Coco Bambu', product: 'Jantar com a Noiva', value: 220.00, status: 'paid' },
+  { id: 't-3', date: '2026-08-02', type: 'income', category: 'Salário', accountId: 'acc-2', payee: 'Empresa Tech SA', product: 'Salário Wesley', value: 9500.00, status: 'paid' },
+  { id: 't-4', date: '2026-08-02', type: 'expense', category: 'Habitação', accountId: 'acc-2', payee: 'Administradora de Condomínio', product: 'Mensalidade condomínio', value: 680.00, status: 'pending' },
+  { id: 't-5', date: '2026-08-02', type: 'expense', category: 'Saúde', accountId: 'acc-3', payee: 'Farmácia Drogasil', product: 'Medicamentos', value: 45.90, status: 'paid' }
+];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('financas');
+  const [activeSubTab, setActiveSubTab] = useState('dashline');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const [bankAccounts, setBankAccounts] = useState(MOCK_ACCOUNTS);
+  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+  const [isUsingSupabase, setIsUsingSupabase] = useState(false);
+
+  // Carregar dados (Supabase com fallback para Mock)
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const { data: accounts, error: accountsError } = await supabase
+          .from('bank_accounts')
+          .select('*');
+        
+        if (accountsError) throw accountsError;
+
+        const { data: transs, error: transsError } = await supabase
+          .from('transactions')
+          .select('*')
+          .order('date', { ascending: false });
+
+        if (transsError) throw transsError;
+
+        if (accounts && accounts.length > 0) setBankAccounts(accounts);
+        if (transs && transs.length > 0) setTransactions(transs);
+        setIsUsingSupabase(true);
+      } catch (err) {
+        console.warn('Supabase não configurado ou tabelas inexistentes. Rodando com dados simulados (Mock).');
+        setIsUsingSupabase(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  // Adicionar Lançamento
+  const handleAddTransaction = async (newTx) => {
+    const uniqueId = `t-${Date.now()}`;
+    const preparedTx = { id: uniqueId, ...newTx };
+
+    if (isUsingSupabase) {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .insert([newTx]);
+
+        if (error) throw error;
+        
+        if (newTx.status === 'paid') {
+          const account = bankAccounts.find(a => a.id === newTx.accountId);
+          if (account) {
+            const newBalance = newTx.type === 'income' 
+              ? account.balance + newTx.value 
+              : account.balance - newTx.value;
+            
+            await supabase
+              .from('bank_accounts')
+              .update({ balance: newBalance })
+              .eq('id', newTx.accountId);
+          }
+        }
+        
+        const { data: transs } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+        const { data: accounts } = await supabase.from('bank_accounts').select('*');
+        if (transs) setTransactions(transs);
+        if (accounts) setBankAccounts(accounts);
+      } catch (err) {
+        console.error('Falha ao salvar no Supabase, executando em estado local:', err);
+        executeLocalAdd(preparedTx);
+      }
+    } else {
+      executeLocalAdd(preparedTx);
+    }
+  };
+
+  const executeLocalAdd = (tx) => {
+    setTransactions(prev => [tx, ...prev]);
+
+    setBankAccounts(prevAccounts => {
+      return prevAccounts.map(account => {
+        if (account.id === tx.accountId) {
+          const diff = tx.type === 'income' ? tx.value : -tx.value;
+          return {
+            ...account,
+            balance: account.balance + diff
+          };
+        }
+        return account;
+      });
+    });
+  };
+
+  // Excluir Lançamento
+  const handleDeleteTransaction = async (id) => {
+    const txToDelete = transactions.find(t => t.id === id);
+    if (!txToDelete) return;
+
+    if (isUsingSupabase && !id.toString().startsWith('t-')) {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        if (txToDelete.status === 'paid') {
+          const account = bankAccounts.find(a => a.id === txToDelete.accountId);
+          if (account) {
+            const newBalance = txToDelete.type === 'income'
+              ? account.balance - txToDelete.value
+              : account.balance + txToDelete.value;
+            
+            await supabase
+              .from('bank_accounts')
+              .update({ balance: newBalance })
+              .eq('id', txToDelete.accountId);
+          }
+        }
+
+        const { data: transs } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+        const { data: accounts } = await supabase.from('bank_accounts').select('*');
+        if (transs) setTransactions(transs);
+        if (accounts) setBankAccounts(accounts);
+      } catch (err) {
+        console.error('Falha ao excluir no Supabase, executando localmente:', err);
+        executeLocalDelete(id, txToDelete);
+      }
+    } else {
+      executeLocalDelete(id, txToDelete);
+    }
+  };
+
+  const executeLocalDelete = (id, tx) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
+    
+    setBankAccounts(prevAccounts => {
+      return prevAccounts.map(account => {
+        if (account.id === tx.accountId) {
+          const diff = tx.type === 'income' ? -tx.value : tx.value;
+          return {
+            ...account,
+            balance: account.balance + diff
+          };
+        }
+        return account;
+      });
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--color-bg-dark)] flex">
+      {/* Sidebar Lateral Colapsável */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
+      />
+
+      {/* Área de Conteúdo Principal */}
+      <main className={`flex-1 flex flex-col min-h-screen overflow-y-auto transition-all duration-300 ${
+        isSidebarCollapsed ? 'pl-20' : 'pl-64'
+      }`}>
+        {/* Header Superior */}
+        <header className="h-20 border-b border-[#192234] px-8 flex items-center justify-between bg-[#06090e]/90 backdrop-blur-md sticky top-0 z-20">
+          <div className="flex items-center gap-3">
+            <h2 className="font-display font-extrabold text-xl text-white tracking-tight">
+              Módulo Financeiro
+            </h2>
+            <span className={`text-[9px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${
+              isUsingSupabase 
+                ? 'bg-[#00ff87]/10 text-[#00ff87] border border-[#00ff87]/30' 
+                : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+            }`}>
+              {isUsingSupabase ? 'Supabase Integrado' : 'Modo Simulador'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-[#475569] font-mono hidden md:inline-block">
+              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </span>
+            <div className="relative">
+              <button className="p-2 rounded-xl bg-[#0d1320] border border-[#192234] text-[#94a3b8] hover:text-[#00ff87] transition-colors cursor-pointer">
+                <Bell size={16} />
+              </button>
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#00ff87] animate-ping"></span>
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[#00ff87]"></span>
+            </div>
+          </div>
+        </header>
+
+        {/* Sub-menu / Abas de Navegação Interna */}
+        {activeTab === 'financas' && (
+          <FinancialNavTabs activeSubTab={activeSubTab} setActiveSubTab={setActiveSubTab} />
+        )}
+
+        {/* Visualização de Conteúdo Dinâmico */}
+        <div className="flex-1 p-8 space-y-8">
+          {activeTab === 'financas' && (
+            <>
+              {/* ABA 1: DASHLINE (Painel Analítico Read-Only) */}
+              {activeSubTab === 'dashline' && (
+                <Dashline bankAccounts={bankAccounts} />
+              )}
+
+              {/* ABA 2: CARTÕES (Gestão Integrada de Faturas) */}
+              {activeSubTab === 'cartoes' && (
+                <CardsModule />
+              )}
+
+              {/* ABA 3: PREENCHIMENTO (Formulário e Tabela de Lançamentos) */}
+              {activeSubTab === 'preenchimento' && (
+                <>
+                  <SummaryCards transactions={transactions} bankAccounts={bankAccounts} />
+
+                  <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
+                    <div className="xl:col-span-3 space-y-6">
+                      {/* Formulário Lançador */}
+                      <TransactionForm bankAccounts={bankAccounts} onSubmit={handleAddTransaction} />
+                      
+                      {/* Tabela de Lançamentos */}
+                      <TransactionTable 
+                        transactions={transactions} 
+                        bankAccounts={bankAccounts} 
+                        onDelete={handleDeleteTransaction} 
+                      />
+                    </div>
+
+                    <div className="xl:col-span-1 h-[450px]">
+                      {/* Lista de Contas Bancárias */}
+                      <BankAccounts bankAccounts={bankAccounts} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
