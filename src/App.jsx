@@ -3,12 +3,9 @@ import Sidebar from './components/Sidebar';
 import FinancialNavTabs from './components/FinancialNavTabs';
 import Dashline from './components/Dashline';
 import CardsModule from './components/CardsModule';
-import SummaryCards from './components/SummaryCards';
-import BankAccounts from './components/BankAccounts';
-import TransactionForm from './components/TransactionForm';
-import TransactionTable from './components/TransactionTable';
+import PreenchimentoModule from './components/PreenchimentoModule';
 import { supabase } from './lib/supabaseClient';
-import { Bell, CreditCard, Sparkles } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 const MOCK_ACCOUNTS = [
   { id: 'acc-1', name: 'Nubank', type: 'corrente', balance: 5420.50 },
@@ -17,11 +14,11 @@ const MOCK_ACCOUNTS = [
 ];
 
 const MOCK_TRANSACTIONS = [
-  { id: 't-1', date: '2026-08-01', type: 'expense', category: 'Alimentação', accountId: 'acc-1', payee: 'Supermercado Carrefour', product: 'Compras do mês', value: 450.80, status: 'paid' },
-  { id: 't-2', date: '2026-08-02', type: 'expense', category: 'Lazer', accountId: 'acc-1', payee: 'Restaurante Coco Bambu', product: 'Jantar com a Noiva', value: 220.00, status: 'paid' },
-  { id: 't-3', date: '2026-08-02', type: 'income', category: 'Salário', accountId: 'acc-2', payee: 'Empresa Tech SA', product: 'Salário Wesley', value: 9500.00, status: 'paid' },
-  { id: 't-4', date: '2026-08-02', type: 'expense', category: 'Habitação', accountId: 'acc-2', payee: 'Administradora de Condomínio', product: 'Mensalidade condomínio', value: 680.00, status: 'pending' },
-  { id: 't-5', date: '2026-08-02', type: 'expense', category: 'Saúde', accountId: 'acc-3', payee: 'Farmácia Drogasil', product: 'Medicamentos', value: 45.90, status: 'paid' }
+  { id: 't-1', date: '2026-08-01', type: 'expense', category: 'Alimentação', accountId: 'acc-1', payee: 'Supermercado Carrefour', product: 'Compras do mês', value: 450.80, status: 'paid', origin: 'manual' },
+  { id: 't-2', date: '2026-08-02', type: 'expense', category: 'Lazer', accountId: 'acc-1', payee: 'Restaurante Coco Bambu', product: 'Jantar com a Noiva', value: 220.00, status: 'paid', origin: 'manual' },
+  { id: 't-3', date: '2026-08-02', type: 'income', category: 'Salário', accountId: 'acc-2', payee: 'Empresa Tech SA', product: 'Salário Wesley', value: 9500.00, status: 'paid', origin: 'manual' },
+  { id: 't-4', date: '2026-08-02', type: 'expense', category: 'Habitação', accountId: 'acc-2', payee: 'Administradora de Condomínio', product: 'Mensalidade condomínio', value: 680.00, status: 'pending', origin: 'manual' },
+  { id: 't-5', date: '2026-08-02', type: 'expense', category: 'Saúde', accountId: 'acc-3', payee: 'Farmácia Drogasil', product: 'Medicamentos', value: 45.90, status: 'paid', origin: 'manual' }
 ];
 
 export default function App() {
@@ -65,13 +62,13 @@ export default function App() {
   // Adicionar Lançamento
   const handleAddTransaction = async (newTx) => {
     const uniqueId = `t-${Date.now()}`;
-    const preparedTx = { id: uniqueId, ...newTx };
+    const preparedTx = { id: uniqueId, origin: 'manual', ...newTx };
 
     if (isUsingSupabase) {
       try {
         const { error } = await supabase
           .from('transactions')
-          .insert([newTx]);
+          .insert([preparedTx]);
 
         if (error) throw error;
         
@@ -117,6 +114,26 @@ export default function App() {
         return account;
       });
     });
+  };
+
+  // Atualizar Status do Lançamento (ex: Marcar como Pago)
+  const handleUpdateStatus = (id, newStatus) => {
+    setTransactions(prev => prev.map(t => {
+      if (t.id === id) {
+        return { ...t, status: newStatus };
+      }
+      return t;
+    }));
+  };
+
+  // Atualizar Categoria do Lançamento
+  const handleUpdateCategory = (id, newCategory) => {
+    setTransactions(prev => prev.map(t => {
+      if (t.id === id) {
+        return { ...t, category: newCategory };
+      }
+      return t;
+    }));
   };
 
   // Excluir Lançamento
@@ -175,6 +192,24 @@ export default function App() {
         return account;
       });
     });
+  };
+
+  // Adicionar Lançamentos em Lote (Importação de Extrato)
+  const handleAddBatchTransactions = (newTxs) => {
+    const formattedTxs = newTxs.map((item, idx) => ({
+      id: item.id || `t-imp-${Date.now()}-${idx}`,
+      date: item.date ? item.date.split('/').reverse().join('-') : '2026-08-05',
+      type: item.type === 'receita' ? 'income' : 'expense',
+      category: item.category && item.category !== 'Entrada' && item.category !== 'Saída' ? item.category : '',
+      accountId: 'acc-1',
+      payee: item.description,
+      product: 'Importação Extrato',
+      value: Math.abs(item.value),
+      status: 'paid',
+      origin: 'extrato'
+    }));
+
+    setTransactions(prev => [...formattedTxs, ...prev]);
   };
 
   return (
@@ -239,30 +274,17 @@ export default function App() {
                 <CardsModule />
               )}
 
-              {/* ABA 3: PREENCHIMENTO (Formulário e Tabela de Lançamentos) */}
+              {/* ABA 3: PREENCHIMENTO (Refatorado com Extrato Geral & Painel de Lembretes de Pagamento) */}
               {activeSubTab === 'preenchimento' && (
-                <>
-                  <SummaryCards transactions={transactions} bankAccounts={bankAccounts} />
-
-                  <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 items-start">
-                    <div className="xl:col-span-3 space-y-6">
-                      {/* Formulário Lançador */}
-                      <TransactionForm bankAccounts={bankAccounts} onSubmit={handleAddTransaction} />
-                      
-                      {/* Tabela de Lançamentos */}
-                      <TransactionTable 
-                        transactions={transactions} 
-                        bankAccounts={bankAccounts} 
-                        onDelete={handleDeleteTransaction} 
-                      />
-                    </div>
-
-                    <div className="xl:col-span-1 h-[450px]">
-                      {/* Lista de Contas Bancárias */}
-                      <BankAccounts bankAccounts={bankAccounts} />
-                    </div>
-                  </div>
-                </>
+                <PreenchimentoModule
+                  transactions={transactions}
+                  bankAccounts={bankAccounts}
+                  onAddTransaction={handleAddTransaction}
+                  onAddBatchTransactions={handleAddBatchTransactions}
+                  onDeleteTransaction={handleDeleteTransaction}
+                  onUpdateStatus={handleUpdateStatus}
+                  onUpdateCategory={handleUpdateCategory}
+                />
               )}
             </>
           )}

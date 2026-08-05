@@ -2,6 +2,10 @@ import React from 'react';
 import { TrendingUp, TrendingDown, Landmark, Percent } from 'lucide-react';
 
 export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
+  // Obter o nome do mês atual formatado dinamicamente (ex: "Agosto")
+  const rawMonth = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+  const formattedMonth = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
+
   // Calcular saldos somando as contas
   const totalBalance = bankAccounts.reduce((acc, account) => acc + account.balance, 0);
   
@@ -23,40 +27,40 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
       title: 'Saldo Geral',
       value: totalBalance,
       icon: Landmark,
-      color: 'from-indigo-500/10 to-indigo-600/5',
-      borderColor: 'border-indigo-500/15',
-      iconColor: 'text-indigo-400',
-      description: 'Soma de todas as contas',
+      color: 'from-[#00ff87]/10 to-emerald-950/20',
+      borderColor: 'border-[#00ff87]/20',
+      iconColor: 'text-[#00ff87]',
+      description: `Soma de todas as contas - Mês de ${formattedMonth}`,
       isCurrency: true
     },
     {
       title: 'Total de Entradas',
       value: totalIncome,
       icon: TrendingUp,
-      color: 'from-emerald-500/10 to-emerald-600/5',
-      borderColor: 'border-emerald-500/15',
+      color: 'from-emerald-500/10 to-emerald-950/20',
+      borderColor: 'border-emerald-500/20',
       iconColor: 'text-emerald-400',
-      description: 'Faturamento total',
+      description: `Faturamento total - Mês de ${formattedMonth}`,
       isCurrency: true
     },
     {
       title: 'Total de Saídas',
       value: totalExpense,
       icon: TrendingDown,
-      color: 'from-rose-500/10 to-rose-600/5',
-      borderColor: 'border-rose-500/15',
+      color: 'from-rose-500/10 to-rose-950/20',
+      borderColor: 'border-rose-500/20',
       iconColor: 'text-rose-400',
-      description: 'Despesas registradas',
+      description: `Despesas registradas - Mês de ${formattedMonth}`,
       isCurrency: true
     },
     {
       title: 'Taxa de Economia',
       value: savingsRate,
       icon: Percent,
-      color: 'from-cyan-500/10 to-cyan-600/5',
-      borderColor: 'border-cyan-500/15',
+      color: 'from-cyan-500/10 to-cyan-950/20',
+      borderColor: 'border-cyan-500/20',
       iconColor: 'text-cyan-400',
-      description: 'Saldo liquido poupado',
+      description: `Saldo líquido poupado - Mês de ${formattedMonth}`,
       isCurrency: false
     }
   ];
@@ -75,20 +79,21 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
         return (
           <div 
             key={i} 
-            className={`glass-panel p-5 rounded-2xl border ${card.borderColor} bg-gradient-to-br ${card.color} glow-card`}
+            className={`p-5 rounded-2xl border ${card.borderColor} bg-[#0b0f19] bg-gradient-to-br ${card.color} shadow-lg hover:border-[#00ff87]/40 transition-all duration-300`}
           >
             <div className="flex justify-between items-start mb-4">
               <div>
-                <p className="text-xs font-semibold text-[#475569] uppercase tracking-wider">{card.title}</p>
-                <h3 className="text-2xl font-bold font-display mt-1.5 text-white">
+                <p className="text-xs font-bold text-[#64748b] uppercase tracking-wider">{card.title}</p>
+                <h3 className="text-2xl font-black font-mono mt-1.5 text-white">
                   {card.isCurrency ? formatCurrency(card.value) : `${card.value.toFixed(1)}%`}
                 </h3>
               </div>
-              <div className={`p-2.5 rounded-xl bg-[#080b11]/60 ${card.iconColor} border border-white/5`}>
+              <div className={`p-2.5 rounded-xl bg-[#080b11]/80 ${card.iconColor} border border-[#192234]`}>
                 <Icon size={20} />
               </div>
             </div>
-            <p className="text-[10px] text-[#475569] font-medium">
+            <p className="text-xs text-[#94a3b8] font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00ff87]" />
               {card.description}
             </p>
           </div>
