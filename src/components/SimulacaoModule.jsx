@@ -365,8 +365,9 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
     // 3. Comparativos visuais "Comprar Agora" vs "Comprar na Melhor Data"
     // --- Cenário A: Comprar AGORA ---
     const nowCommitPct = newCommitPct;
+    const nowPureFixed = fixedExpenses; // Saídas fixas puras do usuário (sem simulação)
     const nowMonthlyTotal = fixedExpenses + monthlyInstallment;
-    const nowTotalSpentInPeriod = (fixedExpenses * parcelas) + numericValor;
+    const nowSimulatedTotalPeriod = (fixedExpenses * parcelas) + numericValor; // Saídas acumuladas no período com a nova compra
     // Alívio que ocorre DURANTE o período se comprar agora
     const nowReliefInstallments = existingInstallments.filter(ei => ei.monthsLeft <= parcelas);
     const nowReliefMonthly = nowReliefInstallments.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
@@ -375,16 +376,16 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
       : 0;
 
     // --- Cenário B: Comprar na DATA SUGERIDA ---
-    const laterFixedExpenses = Math.max(0, fixedExpenses - bestDateMilestone.freedMonthlyAmount);
+    const laterPureFixed = Math.max(0, fixedExpenses - bestDateMilestone.freedMonthlyAmount); // Saídas fixas puras na data futura
     const laterCommitPct = bestDateMilestone.futureCommitPct;
-    const laterMonthlyTotal = laterFixedExpenses + monthlyInstallment;
-    const laterTotalSpentInPeriod = (laterFixedExpenses * parcelas) + numericValor;
+    const laterMonthlyTotal = laterPureFixed + monthlyInstallment;
+    const laterSimulatedTotalPeriod = (laterPureFixed * parcelas) + numericValor; // Saídas acumuladas no período com a nova compra
     // Alívios adicionais que ocorrem se esperar + comprar
     const laterAdditionalRelief = existingInstallments
       .filter(ei => ei.monthsLeft > bestDateMilestone.monthsToWait && ei.monthsLeft <= bestDateMilestone.monthsToWait + parcelas);
     const laterAdditionalReliefMonthly = laterAdditionalRelief.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
     const laterBestCommitAfterRelief = totalIncome > 0
-      ? ((laterFixedExpenses - laterAdditionalReliefMonthly + monthlyInstallment) / totalIncome) * 100
+      ? ((laterPureFixed - laterAdditionalReliefMonthly + monthlyInstallment) / totalIncome) * 100
       : 0;
 
     return {
@@ -397,16 +398,18 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
       comparison: {
         now: {
           commitPct: nowCommitPct,
+          pureFixed: nowPureFixed,
           monthlyTotal: nowMonthlyTotal,
-          totalSpentInPeriod: nowTotalSpentInPeriod,
+          simulatedTotalPeriod: nowSimulatedTotalPeriod,
           reliefMonthly: nowReliefMonthly,
           reliefCount: nowReliefInstallments.length,
           bestCommitAfterRelief: Math.max(0, nowBestCommitAfterRelief),
         },
         later: {
           commitPct: laterCommitPct,
+          pureFixed: laterPureFixed,
           monthlyTotal: laterMonthlyTotal,
-          totalSpentInPeriod: laterTotalSpentInPeriod,
+          simulatedTotalPeriod: laterSimulatedTotalPeriod,
           additionalReliefMonthly: laterAdditionalReliefMonthly,
           additionalReliefCount: laterAdditionalRelief.length,
           bestCommitAfterRelief: Math.max(0, laterBestCommitAfterRelief),
@@ -808,22 +811,22 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                         </div>
 
                         {/* ── COMPARATIVO VISUAL: Agora vs. Data Sugerida ── */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                           {/* Cenário A: Se Comprar AGORA */}
-                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-red-500/20 hover:border-red-500/40 transition-all space-y-3">
+                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-red-500/20 hover:border-red-500/40 transition-all space-y-3.5">
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
-                                <XCircle size={13} />
+                                <XCircle size={14} className="text-red-400" />
                                 Se comprar agora
                               </span>
                               <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 font-bold border border-red-500/30">Hoje</span>
                             </div>
 
                             {/* Barra de Comprometimento Agora */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-[#94a3b8]">Comprometimento</span>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-[#94a3b8]">Comprometimento de Renda</span>
                                 <span className={`font-black font-mono ${
                                   smartSuggestions.comparison.now.commitPct >= 80 ? 'text-red-400' :
                                   smartSuggestions.comparison.now.commitPct >= 70 ? 'text-orange-400' :
@@ -843,28 +846,46 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                               </div>
                             </div>
 
-                            {/* Alívio durante o período */}
-                            {smartSuggestions.comparison.now.reliefCount > 0 && (
-                              <div className="px-2.5 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-[10px] text-emerald-400">
-                                <span className="flex items-center gap-1"><CheckCircle2 size={11} /> Alívio no período: <strong className="font-mono">{smartSuggestions.comparison.now.reliefCount}</strong> fatura(s) terminam → <strong className="font-mono">{smartSuggestions.comparison.now.bestCommitAfterRelief.toFixed(1)}%</strong> ao final</span>
+                            {/* Bloco de Alívio no Período Estruturado */}
+                            <div className="p-3 rounded-xl bg-[#121927] border border-[#192234] space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-[#94a3b8] font-medium flex items-center gap-1.5">
+                                  <CheckCircle2 size={12} className="text-emerald-400" />
+                                  Alívio de Faturas no Período
+                                </span>
+                                {smartSuggestions.comparison.now.reliefCount > 0 ? (
+                                  <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-bold font-mono border border-emerald-500/30">
+                                    {smartSuggestions.comparison.now.reliefCount} fatura(s) encerram
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] text-[#64748b]">Nenhuma</span>
+                                )}
                               </div>
-                            )}
+                              {smartSuggestions.comparison.now.reliefCount > 0 && (
+                                <div className="flex items-center justify-between pt-1 border-t border-[#192234]/80 text-[10px]">
+                                  <span className="text-[#64748b]">Comprometimento final pós-alívio:</span>
+                                  <span className="font-bold font-mono text-emerald-400">
+                                    {smartSuggestions.comparison.now.bestCommitAfterRelief.toFixed(1)}%
+                                  </span>
+                                </div>
+                              )}
+                            </div>
 
                             {/* Mini-grid de métricas */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
-                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Saída Fixa / Mês</p>
-                                <p className="text-xs font-black font-mono text-rose-400 mt-0.5">{fmt(smartSuggestions.comparison.now.monthlyTotal)}</p>
+                            <div className="grid grid-cols-2 gap-2 pt-0.5">
+                              <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[9px] text-[#64748b] uppercase font-bold tracking-wider">Saída Fixa / Mês</p>
+                                <p className="text-xs font-black font-mono text-slate-200 mt-1">{fmt(smartSuggestions.comparison.now.pureFixed)}</p>
                               </div>
-                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
-                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Total no Período</p>
-                                <p className="text-xs font-black font-mono text-white mt-0.5">{fmt(smartSuggestions.comparison.now.totalSpentInPeriod)}</p>
+                              <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[9px] text-[#64748b] uppercase font-bold tracking-wider">Saídas Simuladas</p>
+                                <p className="text-xs font-black font-mono text-rose-400 mt-1">{fmt(smartSuggestions.comparison.now.simulatedTotalPeriod)}</p>
                               </div>
                             </div>
                           </div>
 
                           {/* Cenário B: Se Comprar na DATA SUGERIDA */}
-                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-[#00ff87]/25 hover:border-[#00ff87]/50 transition-all space-y-3 relative">
+                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-[#00ff87]/25 hover:border-[#00ff87]/50 transition-all space-y-3.5 relative">
                             {/* Badge recomendado */}
                             <div className="absolute -top-2.5 right-3">
                               <span className="text-[9px] px-2.5 py-1 rounded-full bg-[#00ff87]/20 text-[#00ff87] border border-[#00ff87]/40 font-black uppercase shadow-[0_0_10px_rgba(0,255,135,0.2)]">
@@ -874,7 +895,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
 
                             <div className="flex items-center justify-between">
                               <span className="text-[11px] font-bold text-[#00ff87] uppercase tracking-wider flex items-center gap-1.5">
-                                <CheckCircle2 size={13} />
+                                <CheckCircle2 size={14} />
                                 Se comprar em {smartSuggestions.bestDateMilestone.targetMonthYear}
                               </span>
                               <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#00ff87]/10 text-[#00ff87] font-bold border border-[#00ff87]/30">
@@ -883,9 +904,9 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                             </div>
 
                             {/* Barra de Comprometimento Depois */}
-                            <div className="space-y-1">
-                              <div className="flex justify-between text-[10px]">
-                                <span className="text-[#94a3b8]">Comprometimento</span>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-[#94a3b8]">Comprometimento de Renda</span>
                                 <span className={`font-black font-mono ${
                                   smartSuggestions.comparison.later.commitPct >= 60 ? 'text-yellow-400' : 'text-[#00ff87]'
                                 }`}>{smartSuggestions.comparison.later.commitPct.toFixed(1)}%</span>
@@ -901,22 +922,35 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                               </div>
                             </div>
 
-                            {/* Alívio adicional futuro */}
-                            {smartSuggestions.comparison.later.additionalReliefCount > 0 && (
-                              <div className="px-2.5 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-[10px] text-emerald-400">
-                                <span className="flex items-center gap-1"><CheckCircle2 size={11} /> Alívio extra: mais <strong className="font-mono">{smartSuggestions.comparison.later.additionalReliefCount}</strong> fatura(s) terminam → <strong className="font-mono">{smartSuggestions.comparison.later.bestCommitAfterRelief.toFixed(1)}%</strong> ao final</span>
+                            {/* Bloco de Alívio no Período Estruturado */}
+                            <div className="p-3 rounded-xl bg-[#121927] border border-emerald-500/20 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-[#94a3b8] font-medium flex items-center gap-1.5">
+                                  <CheckCircle2 size={12} className="text-emerald-400" />
+                                  Alívio de Faturas
+                                </span>
+                                <span className="text-[9px] px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-bold font-mono border border-emerald-500/30">
+                                  {smartSuggestions.bestDateMilestone.freedCount} já quitadas
+                                  {smartSuggestions.comparison.later.additionalReliefCount > 0 && ` (+${smartSuggestions.comparison.later.additionalReliefCount} futuras)`}
+                                </span>
                               </div>
-                            )}
+                              <div className="flex items-center justify-between pt-1 border-t border-[#192234]/80 text-[10px]">
+                                <span className="text-[#64748b]">Comprometimento final pós-alívio:</span>
+                                <span className="font-bold font-mono text-emerald-400">
+                                  {smartSuggestions.comparison.later.bestCommitAfterRelief.toFixed(1)}%
+                                </span>
+                              </div>
+                            </div>
 
                             {/* Mini-grid de métricas */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
-                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Saída Fixa / Mês</p>
-                                <p className="text-xs font-black font-mono text-emerald-400 mt-0.5">{fmt(smartSuggestions.comparison.later.monthlyTotal)}</p>
+                            <div className="grid grid-cols-2 gap-2 pt-0.5">
+                              <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[9px] text-[#64748b] uppercase font-bold tracking-wider">Saída Fixa / Mês</p>
+                                <p className="text-xs font-black font-mono text-emerald-400 mt-1">{fmt(smartSuggestions.comparison.later.pureFixed)}</p>
                               </div>
-                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
-                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Total no Período</p>
-                                <p className="text-xs font-black font-mono text-white mt-0.5">{fmt(smartSuggestions.comparison.later.totalSpentInPeriod)}</p>
+                              <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[9px] text-[#64748b] uppercase font-bold tracking-wider">Saídas Simuladas</p>
+                                <p className="text-xs font-black font-mono text-[#00ff87] mt-1">{fmt(smartSuggestions.comparison.later.simulatedTotalPeriod)}</p>
                               </div>
                             </div>
                           </div>
