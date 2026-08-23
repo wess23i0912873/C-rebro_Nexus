@@ -13,6 +13,7 @@ export default function PreenchimentoModule({
   onAddBatchTransactions, 
   onDeleteTransaction,
   onEditTransaction,
+  onConfirmPayment,
   onUpdateStatus,
   onUpdateCategory
 }) {
@@ -123,7 +124,9 @@ export default function PreenchimentoModule({
             <div className="lg:col-span-1 w-full">
               <PaymentReminders 
                 transactions={transactions} 
+                bankAccounts={bankAccounts}
                 onUpdateStatus={onUpdateStatus}
+                onConfirmPayment={onConfirmPayment}
               />
             </div>
           </div>

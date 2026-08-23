@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import ConfirmPaymentModal from './ConfirmPaymentModal';
 
-export default function PaymentReminders({ transactions = [], onUpdateStatus }) {
+export default function PaymentReminders({ 
+  transactions = [], 
+  bankAccounts = [],
+  onUpdateStatus,
+  onConfirmPayment 
+}) {
+  const [confirmingTx, setConfirmingTx] = useState(null);
+
   // Filtrar apenas lançamentos que possuem o status "A pagar" / "pending"
   const pendingTransactions = transactions.filter(t => t.status === 'pending');
 
@@ -20,9 +28,32 @@ export default function PaymentReminders({ transactions = [], onUpdateStatus }) 
     return `${day}/${month}/${year}`;
   };
 
+  const handleOpenConfirmModal = (tx) => {
+    setConfirmingTx(tx);
+  };
+
+  const handleConfirm = (tx, paymentDetails) => {
+    if (onConfirmPayment) {
+      onConfirmPayment(tx, paymentDetails);
+    } else if (onUpdateStatus) {
+      onUpdateStatus(tx.id, 'paid');
+    }
+    setConfirmingTx(null);
+  };
+
   return (
-    <div className="p-5 rounded-3xl bg-[#0b0f19] border border-amber-500/30 shadow-[0_0_25px_rgba(245,158,11,0.08)] flex flex-col space-y-4 w-full animate-fade-in">
+    <div className="p-5 rounded-3xl bg-[#0b0f19] border border-amber-500/30 shadow-[0_0_25px_rgba(245,158,11,0.08)] flex flex-col space-y-4 w-full animate-fade-in relative">
       
+      {/* Modal de Confirmação de Pagamento */}
+      {confirmingTx && (
+        <ConfirmPaymentModal
+          transaction={confirmingTx}
+          bankAccounts={bankAccounts}
+          onClose={() => setConfirmingTx(null)}
+          onConfirm={handleConfirm}
+        />
+      )}
+
       {/* Cabeçalho do Painel Lateral */}
       <div className="flex items-center justify-between pb-3 border-b border-[#192234]">
         <div className="flex items-center gap-2.5">
@@ -86,7 +117,7 @@ export default function PaymentReminders({ transactions = [], onUpdateStatus }) 
               {/* Botão de Ação Rápida: Marcar como Pago */}
               <button
                 type="button"
-                onClick={() => onUpdateStatus && onUpdateStatus(t.id, 'paid')}
+                onClick={() => handleOpenConfirmModal(t)}
                 className="w-full py-2 px-3 rounded-xl bg-[#00ff87] text-black font-bold text-xs shadow-[0_0_15px_rgba(0,255,135,0.3)] hover:bg-[#26ff98] hover:shadow-[0_0_20px_rgba(0,255,135,0.5)] flex items-center justify-center gap-1.5 transition-all cursor-pointer mt-1"
               >
                 <CheckCircle2 size={14} strokeWidth={2.5} />
@@ -100,3 +131,4 @@ export default function PaymentReminders({ transactions = [], onUpdateStatus }) 
     </div>
   );
 }
+

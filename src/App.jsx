@@ -189,6 +189,103 @@ export default function App() {
     }
   };
 
+  // Confirmar Pagamento de Lembrete (Total vs Parcial)
+  const handleConfirmPayment = async (reminderTx, { paymentDate, paidValue, accountId }) => {
+    const isTotal = paidValue >= reminderTx.value;
+
+    if (isTotal) {
+      // Pagamento Total: Altera status para 'paid', atualiza data, valor e conta bancária
+      const updatedTx = {
+        ...reminderTx,
+        date: paymentDate,
+        value: paidValue,
+        accountId: accountId || reminderTx.accountId,
+        status: 'paid'
+      };
+      await handleEditTransaction(updatedTx);
+    } else {
+      // Pagamento Parcial:
+      // 1. Atualiza a transação pendente existente com o valor restante
+      const remainingValue = Math.max(0, parseFloat((reminderTx.value - paidValue).toFixed(2)));
+      const updatedPendingTx = {
+        ...reminderTx,
+        value: remainingValue
+      };
+
+      // 2. Cria nova transação para a parcela quitada com status 'paid'
+      const paidTx = {
+        id: `t-pay-${Date.now()}`,
+        date: paymentDate,
+        type: reminderTx.type || 'expense',
+        category: reminderTx.category || 'Outros',
+        accountId: accountId || reminderTx.accountId,
+        payee: reminderTx.payee || reminderTx.description || 'Lançamento',
+        product: reminderTx.product ? `${reminderTx.product} (Pagamento Parcial)` : 'Pagamento Parcial',
+        value: paidValue,
+        status: 'paid',
+        origin: reminderTx.origin || 'manual'
+      };
+
+      if (isUsingSupabase && !reminderTx.id.toString().startsWith('t-')) {
+        try {
+          // Atualiza valor restante na pendente
+          await supabase
+            .from('transactions')
+            .update({ value: remainingValue })
+            .eq('id', reminderTx.id);
+
+          // Insere a parcela paga
+          await supabase
+            .from('transactions')
+            .insert([paidTx]);
+
+          // Atualiza saldo bancário da parcela paga
+          const account = bankAccounts.find(a => a.id === paidTx.accountId);
+          if (account) {
+            const newBalance = paidTx.type === 'income' 
+              ? account.balance + paidTx.value 
+              : account.balance - paidTx.value;
+            
+            await supabase
+              .from('bank_accounts')
+              .update({ balance: newBalance })
+              .eq('id', paidTx.accountId);
+          }
+
+          const { data: transs } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+          const { data: accounts } = await supabase.from('bank_accounts').select('*');
+          if (transs) setTransactions(transs);
+          if (accounts) setBankAccounts(accounts);
+        } catch (err) {
+          console.error('Falha ao registrar pagamento parcial no Supabase, executando em estado local:', err);
+          executeLocalPartialPayment(updatedPendingTx, paidTx);
+        }
+      } else {
+        executeLocalPartialPayment(updatedPendingTx, paidTx);
+      }
+    }
+  };
+
+  const executeLocalPartialPayment = (updatedPendingTx, paidTx) => {
+    setTransactions(prev => [
+      paidTx,
+      ...prev.map(t => t.id === updatedPendingTx.id ? updatedPendingTx : t)
+    ]);
+
+    setBankAccounts(prevAccounts => {
+      return prevAccounts.map(account => {
+        if (account.id === paidTx.accountId) {
+          const diff = paidTx.type === 'income' ? paidTx.value : -paidTx.value;
+          return {
+            ...account,
+            balance: account.balance + diff
+          };
+        }
+        return account;
+      });
+    });
+  };
+
   // Excluir Lançamento
   const handleDeleteTransaction = async (id) => {
     const txToDelete = transactions.find(t => t.id === id);
@@ -336,6 +433,7 @@ export default function App() {
                   onAddBatchTransactions={handleAddBatchTransactions}
                   onDeleteTransaction={handleDeleteTransaction}
                   onEditTransaction={handleEditTransaction}
+                  onConfirmPayment={handleConfirmPayment}
                   onUpdateStatus={handleUpdateStatus}
                   onUpdateCategory={handleUpdateCategory}
                 />
