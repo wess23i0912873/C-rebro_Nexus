@@ -69,7 +69,7 @@ export default function Dashline({
   const totalBalance = Math.round(calcTotalBalance * 100) / 100;
   
   const filteredIncomeTxs = filterByRange(
-    transactions.filter(t => t.type === 'income' || t.type === 'receita'),
+    transactions.filter(t => (t.type === 'income' || t.type === 'receita') && t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência'),
     entradasRange
   );
   const totalEntradas = Math.round(
@@ -77,7 +77,7 @@ export default function Dashline({
   ) / 100;
 
   const filteredExpenseTxs = filterByRange(
-    transactions.filter(t => t.type === 'expense' || t.type === 'despesa'),
+    transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência'),
     saidasRange
   );
   const totalSaidas = Math.round(
@@ -86,9 +86,10 @@ export default function Dashline({
 
   // Rankings baseados em transações reais + categorias cadastradas
   const dynamicExpenseRanking = useMemo(() => {
+    const isNotTransfer = (t) => t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência';
     const sourceTxs = isGastosRankingFiltered 
-      ? filterByRange(transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && parseFloat(t.value) > 0), rankingGastosRange)
-      : transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && parseFloat(t.value) > 0);
+      ? filterByRange(transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && isNotTransfer(t) && parseFloat(t.value) > 0), rankingGastosRange)
+      : transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && isNotTransfer(t) && parseFloat(t.value) > 0);
 
     if (sourceTxs.length === 0) return [];
     
@@ -119,9 +120,10 @@ export default function Dashline({
   }, [transactions, categories, isGastosRankingFiltered, rankingGastosRange]);
 
   const dynamicIncomeRanking = useMemo(() => {
+    const isNotTransfer = (t) => t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência';
     const sourceTxs = isRendasRankingFiltered 
-      ? filterByRange(transactions.filter(t => (t.type === 'income' || t.type === 'receita') && parseFloat(t.value) > 0), rankingRendasRange)
-      : transactions.filter(t => (t.type === 'income' || t.type === 'receita') && parseFloat(t.value) > 0);
+      ? filterByRange(transactions.filter(t => (t.type === 'income' || t.type === 'receita') && isNotTransfer(t) && parseFloat(t.value) > 0), rankingRendasRange)
+      : transactions.filter(t => (t.type === 'income' || t.type === 'receita') && isNotTransfer(t) && parseFloat(t.value) > 0);
 
     if (sourceTxs.length === 0) return [];
 
@@ -154,7 +156,7 @@ export default function Dashline({
   const currentExpenseRankingTotal = dynamicExpenseRanking.reduce((acc, curr) => acc + curr.amount, 0);
   const currentIncomeRankingTotal = dynamicIncomeRanking.reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Evolução Mensal Dinâmica Real
+  // Evolução Mensal Dinâmica Real (Exclui estritamente Transferências)
   const monthlyProfitData = useMemo(() => {
     if (!transactions || transactions.length === 0) {
       const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'short' });
@@ -176,9 +178,14 @@ export default function Dashline({
       }
       
       const val = parseFloat(t.value) || 0;
-      if (t.type === 'income' || t.type === 'receita') {
+      const isTransfer = t.type === 'transfer' || t.type === 'transferencia' || t.category === 'Transferência';
+      const isIncome = (t.type === 'income' || t.type === 'receita') && !isTransfer;
+      const isExpense = (t.type === 'expense' || t.type === 'despesa') && !isTransfer;
+
+      // Transferências NÃO afetam entradas e nem saídas
+      if (isIncome) {
         monthMap[label].entradas += val;
-      } else {
+      } else if (isExpense) {
         monthMap[label].saidas += val;
       }
       monthMap[label].lucro = monthMap[label].entradas - monthMap[label].saidas;
@@ -190,14 +197,18 @@ export default function Dashline({
   // Transações Recentes
   const recentTransactions = useMemo(() => {
     if (!transactions || transactions.length === 0) return [];
-    return transactions.slice(0, 5).map((t, idx) => ({
-      id: t.id || `tx-${idx}`,
-      date: t.date ? t.date.split('-').reverse().join('/') : '',
-      title: t.payee || t.description || t.product || 'Lançamento',
-      category: t.category || 'Geral',
-      amount: parseFloat(t.value) || 0,
-      type: (t.type === 'income' || t.type === 'receita') ? 'income' : 'expense'
-    }));
+    return transactions.slice(0, 5).map((t, idx) => {
+      const isTransfer = t.type === 'transfer' || t.type === 'transferencia' || t.category === 'Transferência';
+      const isIncome = (t.type === 'income' || t.type === 'receita') && !isTransfer;
+      return {
+        id: t.id || `tx-${idx}`,
+        date: t.date ? t.date.split('-').reverse().join('/') : '',
+        title: t.payee || t.description || t.product || 'Lançamento',
+        category: isTransfer ? 'Transferência' : (t.category || 'Geral'),
+        amount: parseFloat(t.value) || 0,
+        type: isTransfer ? 'transfer' : isIncome ? 'income' : 'expense'
+      };
+    });
   }, [transactions]);
 
   // Análise Dinâmica de Cartões
@@ -551,16 +562,20 @@ export default function Dashline({
         ) : (
           <div className="space-y-2.5">
             {recentTransactions.map(t => (
-              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0b0f19] border border-[#192234] hover:border-[#00ff87]/30 transition-all text-xs">
+              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0b0f19] border border-[#192234] hover:border-cyan-500/30 transition-all text-xs">
                 <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${t.type === 'income' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                  <span className={`w-2 h-2 rounded-full ${
+                    t.type === 'transfer' ? 'bg-cyan-400' : t.type === 'income' ? 'bg-emerald-400' : 'bg-rose-400'
+                  }`} />
                   <div>
                     <span className="font-bold text-white block">{t.title}</span>
                     <span className="text-[10px] text-[#64748b]">{t.category} • {t.date}</span>
                   </div>
                 </div>
-                <span className={`font-bold font-mono ${t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {t.type === 'income' ? '+' : '-'}{formatBRL(t.amount)}
+                <span className={`font-bold font-mono ${
+                  t.type === 'transfer' ? 'text-cyan-400' : t.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {t.type === 'transfer' ? '↔ ' : t.type === 'income' ? '+' : '-'}{formatBRL(t.amount)}
                 </span>
               </div>
             ))}

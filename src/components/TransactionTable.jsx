@@ -22,7 +22,7 @@ const CATEGORY_EMOJIS = {
 };
 
 function getOriginBadge(tx) {
-  if (tx.type === 'transfer') {
+  if (tx.type === 'transfer' || tx.type === 'transferencia' || tx.category === 'Transferência') {
     return { label: 'Transferência', emoji: '🔄', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' };
   }
   if (tx.origin === 'extrato' || tx.product === 'Importação Extrato' || tx.id?.toString().includes('ofx') || tx.id?.toString().includes('csv') || tx.id?.toString().includes('imp')) {
@@ -87,11 +87,15 @@ export default function TransactionTable({
       productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       categoryName.toLowerCase().includes(searchTerm.toLowerCase());
     
+    const isTransfer = t.type === 'transfer' || t.type === 'transferencia' || t.category === 'Transferência';
+    const isIncome = (t.type === 'income' || t.type === 'receita') && !isTransfer;
+    const isExpense = (t.type === 'expense' || t.type === 'despesa') && !isTransfer;
+
     const matchesType = 
       filterType === 'all' ? true : 
-      filterType === 'income' ? (t.type === 'income' || t.type === 'receita') : 
-      filterType === 'transfer' ? (t.type === 'transfer') :
-      (t.type === 'expense' || t.type === 'despesa');
+      filterType === 'income' ? isIncome : 
+      filterType === 'transfer' ? isTransfer :
+      isExpense;
     
     return matchesSearch && matchesType;
   });
@@ -207,8 +211,9 @@ export default function TransactionTable({
               </tr>
             ) : (
               filteredTransactions.map((t) => {
-                const isTransfer = t.type === 'transfer';
-                const isExpense = t.type === 'expense' || t.type === 'despesa';
+                const isTransfer = t.type === 'transfer' || t.type === 'transferencia' || t.category === 'Transferência';
+                const isIncome = (t.type === 'income' || t.type === 'receita') && !isTransfer;
+                const isExpense = (t.type === 'expense' || t.type === 'despesa') && !isTransfer;
                 const originBadge = getOriginBadge(t);
                 const emoji = getDynamicCategoryEmoji(t.category);
                 const accInfo = getAccountInfo(t.accountId);
