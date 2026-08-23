@@ -249,13 +249,15 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
   const [simulado, setSimulado] = useState(false);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
 
-  // ── Dados do App Reais ───────────────────────────────────────────────────────
+  // ── Dados do App Reais (Exclui estritamente transferências) ───────────────────
+  const isNotTransfer = (t) => t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência';
+
   const totalIncome = useMemo(() => {
     const fromRecurring = (recurringItems || [])
       .filter(i => i.type === 'income')
       .reduce((acc, i) => acc + (parseFloat(i.value) || 0), 0);
     const fromTransactions = (transactions || [])
-      .filter(t => t.type === 'income' || t.type === 'receita')
+      .filter(t => (t.type === 'income' || t.type === 'receita') && isNotTransfer(t))
       .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0);
     return Math.round((fromRecurring > 0 ? fromRecurring : fromTransactions) * 100) / 100;
   }, [transactions, recurringItems]);
@@ -265,7 +267,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
       .filter(i => i.type === 'expense')
       .reduce((acc, i) => acc + (parseFloat(i.value) || 0), 0);
     const fromTransactions = (transactions || [])
-      .filter(t => t.type === 'expense' || t.type === 'despesa')
+      .filter(t => (t.type === 'expense' || t.type === 'despesa') && isNotTransfer(t))
       .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0);
     return Math.round((fromRecurring > 0 ? fromRecurring : fromTransactions) * 100) / 100;
   }, [transactions, recurringItems]);

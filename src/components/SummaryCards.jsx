@@ -11,17 +11,17 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
     (bankAccounts || []).reduce((acc, account) => acc + (parseFloat(account.balance) || 0), 0) * 100
   ) / 100;
   
-  // Calcular entradas (receitas)
+  // Calcular entradas (receitas - exclui transferências)
   const totalIncome = Math.round(
     (transactions || [])
-      .filter(t => t.type === 'income' || t.type === 'receita')
+      .filter(t => (t.type === 'income' || t.type === 'receita') && t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência')
       .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0) * 100
   ) / 100;
 
-  // Calcular saídas (despesas)
+  // Calcular saídas (despesas - exclui transferências)
   const totalExpense = Math.round(
     (transactions || [])
-      .filter(t => t.type === 'expense' || t.type === 'despesa')
+      .filter(t => (t.type === 'expense' || t.type === 'despesa') && t.type !== 'transfer' && t.type !== 'transferencia' && t.category !== 'Transferência')
       .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0) * 100
   ) / 100;
 
