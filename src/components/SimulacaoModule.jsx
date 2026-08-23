@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 // ─── Cartões Mock (sincronizado com CardsModule) ─────────────────────────────
-const MOCK_CARDS = [
+const DEFAULT_CARDS = [
   { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', limitTotal: 15000, limitUsed: 3790.50 },
   { id: 'card-2', name: 'Mercado Pago Black',  digits: '•••• 8120', limitTotal: 10000, limitUsed: 2670.00 },
   { id: 'card-3', name: 'Itaú Personnalité',   digits: '•••• 3044', limitTotal: 20000, limitUsed: 1500.00 },
@@ -239,27 +239,34 @@ function CommitmentBar({ label, value, total, color = '#00ff87' }) {
 }
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
-export default function SimulacaoModule({ transactions = [], bankAccounts = [] }) {
+export default function SimulacaoModule({ transactions = [], bankAccounts = [], cards = [], recurringItems = [] }) {
+  const CARDS = (cards && cards.length > 0) ? cards : DEFAULT_CARDS;
   // ── Form State ──────────────────────────────────────────────────────────────
   const [valorBem, setValorBem] = useState('');
   const [parcelas, setParcelas] = useState(12);
   const [formaPgto, setFormaPgto] = useState('cartao');
-  const [selectedCard, setSelectedCard] = useState(MOCK_CARDS[0].id);
+  const [selectedCard, setSelectedCard] = useState(CARDS[0]?.id || '');
   const [simulado, setSimulado] = useState(false);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
 
   // ── Dados do App ────────────────────────────────────────────────────────────
   const totalIncome = useMemo(() => {
+    if (recurringItems && recurringItems.length > 0) {
+      return recurringItems.filter(i => i.type === 'income').reduce((acc, i) => acc + (i.value || 0), 0) || 9500;
+    }
     return transactions
       .filter(t => t.type === 'income' || t.type === 'receita')
       .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 9500; // Fallback garantido
-  }, [transactions]);
+  }, [transactions, recurringItems]);
 
   const fixedExpenses = useMemo(() => {
+    if (recurringItems && recurringItems.length > 0) {
+      return recurringItems.filter(i => i.type === 'expense').reduce((acc, i) => acc + (i.value || 0), 0) || 1396.70;
+    }
     return transactions
       .filter(t => t.type === 'expense' || t.type === 'despesa')
       .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 1396.70;
-  }, [transactions]);
+  }, [transactions, recurringItems]);
 
   const totalBalance = useMemo(() => {
     return bankAccounts.reduce((acc, a) => acc + (a.balance || 0), 0) || 18270.50;
@@ -304,7 +311,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
   const numericValor = parseFloat(valorBem) || 0;
   const monthlyInstallment = parcelas > 0 ? numericValor / parcelas : 0;
 
-  const card = MOCK_CARDS.find(c => c.id === selectedCard) || MOCK_CARDS[0];
+  const card = CARDS.find(c => c.id === selectedCard) || CARDS[0];
   const limitAvailable = card.limitTotal - card.limitUsed;
   const limitAfterPurchase = limitAvailable - numericValor;
   const limitCommitPct = pct(card.limitUsed + numericValor, card.limitTotal);
@@ -430,7 +437,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
     setValorBem('');
     setParcelas(12);
     setFormaPgto('cartao');
-    setSelectedCard(MOCK_CARDS[0].id);
+    setSelectedCard(CARDS[0]?.id || '');
   };
 
   const applySuggestedParcelas = (newP) => {
@@ -641,7 +648,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                   Cartão Utilizado (Afeta Limite)
                 </label>
                 <div className="space-y-2">
-                  {MOCK_CARDS.map(c => {
+                  {CARDS.map(c => {
                     const available = c.limitTotal - c.limitUsed;
                     const isSelected = selectedCard === c.id;
                     const canAfford = available >= numericValor;

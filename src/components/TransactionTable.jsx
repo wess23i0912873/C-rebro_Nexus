@@ -38,6 +38,7 @@ function getOriginBadge(tx) {
 export default function TransactionTable({ 
   transactions = [], 
   bankAccounts = [], 
+  categories = [],
   onDelete, 
   onEdit,
   onUpdateStatus, 
@@ -46,6 +47,15 @@ export default function TransactionTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [editingTx, setEditingTx] = useState(null);
+
+  const getDynamicCategoryEmoji = (catName) => {
+    if (!catName) return '🏷️';
+    if (categories && categories.length > 0) {
+      const found = categories.find(c => c.name === catName || c.value === catName);
+      if (found) return found.emoji;
+    }
+    return getCategoryEmoji(catName);
+  };
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', {

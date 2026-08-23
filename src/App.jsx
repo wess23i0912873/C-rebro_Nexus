@@ -5,13 +5,40 @@ import Dashline from './components/Dashline';
 import CardsModule from './components/CardsModule';
 import PreenchimentoModule from './components/PreenchimentoModule';
 import SimulacaoModule from './components/SimulacaoModule';
+import ControlCenterModule from './components/ControlCenterModule';
 import { supabase } from './lib/supabaseClient';
+import { useLocalStorage } from './lib/useLocalStorage';
 import { Bell } from 'lucide-react';
 
-const MOCK_ACCOUNTS = [
-  { id: 'acc-1', name: 'Nubank', type: 'corrente', balance: 5420.50 },
-  { id: 'acc-2', name: 'Itaú Personnalité', type: 'investimentos', balance: 12500.00 },
-  { id: 'acc-3', name: 'Dinheiro Físico', type: 'wallet', balance: 350.00 }
+const DEFAULT_ACCOUNTS = [
+  { id: 'acc-1', name: 'Nubank', emoji: '🟣', type: 'corrente', balance: 5420.50 },
+  { id: 'acc-2', name: 'Itaú Personnalité', emoji: '🟠', type: 'investimentos', balance: 12500.00 },
+  { id: 'acc-3', name: 'Dinheiro Físico', emoji: '💵', type: 'wallet', balance: 350.00 }
+];
+
+const DEFAULT_CARDS = [
+  { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', owner: 'eu', limitTotal: 15000, limitUsed: 3790.50, dueDay: '10', gradient: 'purple', colorGradient: 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]', borderColor: 'border-purple-500/30', accent: '#a855f7' },
+  { id: 'card-2', name: 'Mercado Pago Black', digits: '•••• 8120', owner: 'eu', limitTotal: 10000, limitUsed: 2670.00, dueDay: '20', gradient: 'cyan', colorGradient: 'from-sky-900/60 via-blue-950/80 to-[#0b0f19]', borderColor: 'border-cyan-500/30', accent: '#06b6d4' },
+  { id: 'card-3', name: 'Itaú Personnalité Platinum', digits: '•••• 3044', owner: 'noiva', limitTotal: 20000, limitUsed: 1500.00, dueDay: '15', gradient: 'amber', colorGradient: 'from-amber-950/60 via-slate-900/80 to-[#0b0f19]', borderColor: 'border-amber-500/30', accent: '#f59e0b' },
+];
+
+const DEFAULT_CATEGORIES = [
+  // Despesas
+  { id: 'cat-1', name: 'Alimentação', value: 'Alimentação', label: 'Alimentação', type: 'expense', emoji: '🍔' },
+  { id: 'cat-2', name: 'Habitação', value: 'Habitação', label: 'Habitação', type: 'expense', emoji: '🏠' },
+  { id: 'cat-3', name: 'Lazer', value: 'Lazer', label: 'Lazer', type: 'expense', emoji: '🎮' },
+  { id: 'cat-4', name: 'Saúde', value: 'Saúde', label: 'Saúde', type: 'expense', emoji: '🏥' },
+  { id: 'cat-5', name: 'Transporte', value: 'Transporte', label: 'Transporte', type: 'expense', emoji: '🚗' },
+  { id: 'cat-6', name: 'Outros', value: 'Outros', label: 'Outras Despesas', type: 'expense', emoji: '🏷️' },
+  // Receitas
+  { id: 'cat-7', name: 'Salário', value: 'Salário', label: 'Salário / Renda', type: 'income', emoji: '💼' },
+  { id: 'cat-8', name: 'Investimentos', value: 'Investimentos', label: 'Investimentos / Rendimentos', type: 'income', emoji: '📈' },
+  { id: 'cat-9', name: 'Outros', value: 'Outros', label: 'Outras Receitas', type: 'income', emoji: '🟢' },
+];
+
+const DEFAULT_RECURRING = [
+  { id: 'rec-1', name: 'Condomínio', type: 'expense', emoji: '🏠', value: 680 },
+  { id: 'rec-2', name: 'Salário Wesley', type: 'income', emoji: '💼', value: 9500 },
 ];
 
 const MOCK_TRANSACTIONS = [
@@ -27,9 +54,14 @@ export default function App() {
   const [activeSubTab, setActiveSubTab] = useState('dashline');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  const [bankAccounts, setBankAccounts] = useState(MOCK_ACCOUNTS);
+  const [bankAccounts, setBankAccounts] = useLocalStorage('nexus_bank_accounts', DEFAULT_ACCOUNTS);
   const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
   const [isUsingSupabase, setIsUsingSupabase] = useState(false);
+
+  // ─── Central de Controle ─ Estado Global Persistido ─────────────────────────────────────
+  const [cards, setCards] = useLocalStorage('nexus_cards', DEFAULT_CARDS);
+  const [categories, setCategories] = useLocalStorage('nexus_categories', DEFAULT_CATEGORIES);
+  const [recurringItems, setRecurringItems] = useLocalStorage('nexus_recurring', DEFAULT_RECURRING);
 
   // Carregar dados (Supabase com fallback para Mock)
   useEffect(() => {
@@ -59,6 +91,28 @@ export default function App() {
 
     loadData();
   }, []);
+
+  // ─── Central de Controle ─ CRUD Handlers ────────────────────────────────────────
+
+  // Cartões
+  const handleAddCard = (card) => setCards(prev => [...prev, card]);
+  const handleEditCard = (updated) => setCards(prev => prev.map(c => c.id === updated.id ? updated : c));
+  const handleDeleteCard = (id) => setCards(prev => prev.filter(c => c.id !== id));
+
+  // Contas Bancárias
+  const handleAddAccount = (acc) => setBankAccounts(prev => [...prev, acc]);
+  const handleEditAccount = (updated) => setBankAccounts(prev => prev.map(a => a.id === updated.id ? updated : a));
+  const handleDeleteAccount = (id) => setBankAccounts(prev => prev.filter(a => a.id !== id));
+
+  // Categorias
+  const handleAddCategory = (cat) => setCategories(prev => [...prev, cat]);
+  const handleEditCategory = (updated) => setCategories(prev => prev.map(c => (c.id || c.value) === (updated.id || updated.value) ? updated : c));
+  const handleDeleteCategory = (idOrValue) => setCategories(prev => prev.filter(c => (c.id || c.value) !== idOrValue));
+
+  // Itens Recorrentes
+  const handleAddRecurring = (item) => setRecurringItems(prev => [...prev, item]);
+  const handleEditRecurring = (updated) => setRecurringItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+  const handleDeleteRecurring = (id) => setRecurringItems(prev => prev.filter(i => i.id !== id));
 
   // Adicionar Lançamento
   const handleAddTransaction = async (newTx) => {
@@ -430,6 +484,7 @@ export default function App() {
                 <PreenchimentoModule
                   transactions={transactions}
                   bankAccounts={bankAccounts}
+                  categories={categories}
                   onAddTransaction={handleAddTransaction}
                   onAddBatchTransactions={handleAddBatchTransactions}
                   onDeleteTransaction={handleDeleteTransaction}
@@ -445,6 +500,30 @@ export default function App() {
                 <SimulacaoModule
                   transactions={transactions}
                   bankAccounts={bankAccounts}
+                  cards={cards}
+                  recurringItems={recurringItems}
+                />
+              )}
+
+              {/* ABA 5: CENTRAL DE CONTROLE */}
+              {activeSubTab === 'centraldecontrole' && (
+                <ControlCenterModule
+                  cards={cards}
+                  onAddCard={handleAddCard}
+                  onEditCard={handleEditCard}
+                  onDeleteCard={handleDeleteCard}
+                  bankAccounts={bankAccounts}
+                  onAddAccount={handleAddAccount}
+                  onEditAccount={handleEditAccount}
+                  onDeleteAccount={handleDeleteAccount}
+                  categories={categories}
+                  onAddCategory={handleAddCategory}
+                  onEditCategory={handleEditCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  recurringItems={recurringItems}
+                  onAddRecurring={handleAddRecurring}
+                  onEditRecurring={handleEditRecurring}
+                  onDeleteRecurring={handleDeleteRecurring}
                 />
               )}
             </>

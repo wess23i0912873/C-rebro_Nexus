@@ -20,7 +20,7 @@ function getBankBadge(accName) {
   return { logo: '🏛️', color: '#192234', label: accName };
 }
 
-export default function TransactionForm({ bankAccounts = [], onSubmit }) {
+export default function TransactionForm({ bankAccounts = [], categories = [], onSubmit }) {
   const today = new Date().toISOString().split('T')[0];
   
   const [formData, setFormData] = useState({
@@ -55,7 +55,9 @@ export default function TransactionForm({ bankAccounts = [], onSubmit }) {
   }, []);
 
   // Categorias dinâmicas filtradas pelo Tipo (Saída vs Entrada)
-  const currentCategories = formData.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const currentCategories = formData.type === 'income' 
+    ? (categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES)
+    : (categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES);
 
   const selectedAccountObj = bankAccounts.find(a => a.id === formData.accountId) || bankAccounts[0];
   const accountBadge = getBankBadge(selectedAccountObj?.name || '');
@@ -65,7 +67,9 @@ export default function TransactionForm({ bankAccounts = [], onSubmit }) {
     
     // Troca dinâmica de Tipo reavalia e reseta a Categoria para a primeira compatível
     if (name === 'type') {
-      const defaultCategory = value === 'income' ? INCOME_CATEGORIES[0].value : EXPENSE_CATEGORIES[0].value;
+      const incomeCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES;
+      const expenseCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES;
+      const defaultCategory = value === 'income' ? incomeCats[0]?.value : expenseCats[0]?.value;
       setFormData(prev => ({
         ...prev,
         type: value,
