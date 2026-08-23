@@ -11,15 +11,15 @@ import { useLocalStorage } from './lib/useLocalStorage';
 import { Bell } from 'lucide-react';
 
 const DEFAULT_ACCOUNTS = [
-  { id: 'acc-1', name: 'Nubank', emoji: '🟣', type: 'corrente', balance: 5420.50 },
-  { id: 'acc-2', name: 'Itaú Personnalité', emoji: '🟠', type: 'investimentos', balance: 12500.00 },
-  { id: 'acc-3', name: 'Dinheiro Físico', emoji: '💵', type: 'wallet', balance: 350.00 }
+  { id: 'acc-1', name: 'Nubank', icon: '/imagens/icones_de_banco/icone_banco-nubank.png', type: 'corrente', balance: 5420.50 },
+  { id: 'acc-2', name: 'Itaú Personnalité', icon: '/imagens/icones_de_banco/icone_banco-itau.png', type: 'investimentos', balance: 12500.00 },
+  { id: 'acc-3', name: 'Dinheiro Físico', icon: '/imagens/icones_de_banco/icone_banco-dinheiro.png', type: 'wallet', balance: 350.00 }
 ];
 
 const DEFAULT_CARDS = [
-  { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', owner: 'eu', limitTotal: 15000, limitUsed: 3790.50, dueDay: '10', gradient: 'purple', colorGradient: 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]', borderColor: 'border-purple-500/30', accent: '#a855f7' },
-  { id: 'card-2', name: 'Mercado Pago Black', digits: '•••• 8120', owner: 'eu', limitTotal: 10000, limitUsed: 2670.00, dueDay: '20', gradient: 'cyan', colorGradient: 'from-sky-900/60 via-blue-950/80 to-[#0b0f19]', borderColor: 'border-cyan-500/30', accent: '#06b6d4' },
-  { id: 'card-3', name: 'Itaú Personnalité Platinum', digits: '•••• 3044', owner: 'noiva', limitTotal: 20000, limitUsed: 1500.00, dueDay: '15', gradient: 'amber', colorGradient: 'from-amber-950/60 via-slate-900/80 to-[#0b0f19]', borderColor: 'border-amber-500/30', accent: '#f59e0b' },
+  { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', owner: 'eu', limitTotal: 15000, limitUsed: 3790.50, dueDay: '10', image: '/imagens/cartoes/cartao-nubank-ultravioleta.png', colorGradient: 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]', borderColor: 'border-purple-500/30', accent: '#a855f7' },
+  { id: 'card-2', name: 'Mercado Pago Black', digits: '•••• 8120', owner: 'eu', limitTotal: 10000, limitUsed: 2670.00, dueDay: '20', image: '/imagens/cartoes/cartao-mercadopago.png', colorGradient: 'from-sky-900/60 via-blue-950/80 to-[#0b0f19]', borderColor: 'border-cyan-500/30', accent: '#06b6d4' },
+  { id: 'card-3', name: 'Itaú Personnalité Platinum', digits: '•••• 3044', owner: 'noiva', limitTotal: 20000, limitUsed: 1500.00, dueDay: '15', image: '/imagens/cartoes/cartao-itau-personnalite.png', colorGradient: 'from-amber-950/60 via-slate-900/80 to-[#0b0f19]', borderColor: 'border-amber-500/30', accent: '#f59e0b' },
 ];
 
 const DEFAULT_CATEGORIES = [

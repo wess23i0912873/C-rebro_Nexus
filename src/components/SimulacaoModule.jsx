@@ -22,6 +22,9 @@ import {
   Percent,
   ChevronDown
 } from 'lucide-react';
+import CardVisual from './CardVisual';
+import BankIcon from './BankIcon';
+import { findBankPreset } from '../constants/assetOptions';
 
 // ─── Cartões Mock (sincronizado com CardsModule) ─────────────────────────────
 const DEFAULT_CARDS = [
@@ -663,11 +666,11 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
                             : 'bg-[#121927] border-[#192234] hover:border-[#2a3550]'
                         }`}
                       >
-                        <div className="flex items-center gap-2 text-left">
-                          <CreditCard size={14} className={isSelected ? 'text-purple-400' : 'text-[#64748b]'} />
+                        <div className="flex items-center gap-3 text-left">
+                          <CardVisual image={c.image} cardName={c.name} digits={c.digits} variant="thumbnail" />
                           <div>
                             <p className={`font-bold ${isSelected ? 'text-purple-300' : 'text-[#94a3b8]'}`}>{c.name}</p>
-                            <p className="text-[9px] text-[#64748b]">{c.digits}</p>
+                            <p className="text-[9px] text-[#64748b] font-mono">{c.digits}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -1116,8 +1119,8 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
               {/* 4. Impacto no Limite do Cartão (quando aplicável) */}
               {formaPgto === 'cartao' && (
                 <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                    <CreditCard size={16} className="text-purple-400" />
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2.5">
+                    <CardVisual image={card.image} cardName={card.name} digits={card.digits} variant="thumbnail" className="w-8 h-5" />
                     <span>Impacto no Limite — {card.name}</span>
                   </h4>
 
@@ -1200,7 +1203,8 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
                           className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#0d1320] to-[#0b0f19] border border-amber-500/40 hover:border-amber-500/70 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
                         >
                           <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2.5">
+                              <BankIcon src={findBankPreset(ei.bank)?.path} bankName={ei.bank} size="sm" />
                               <span className="text-sm font-bold text-white">{ei.name}</span>
                               <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#121927] text-[#94a3b8] border border-[#192234]">
                                 {ei.bank}

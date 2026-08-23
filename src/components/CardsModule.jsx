@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import VisualDateRangePicker from './VisualDateRangePicker';
 import VisualMonthPicker from './VisualMonthPicker';
+import CardVisual from './CardVisual';
 
 // Dados Mockados de Fallback para o Módulo de Cartões
 const DEFAULT_FALLBACK_CARDS = [
@@ -340,14 +341,17 @@ export default function CardsModule({ cards: cardsProp = [] }) {
             return (
               <div 
                 key={card.id}
-                className={`glass-card rounded-3xl border ${card.borderColor || 'border-purple-500/30'} bg-gradient-to-b ${card.colorGradient || 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]'} p-6 flex flex-col justify-between space-y-5 relative group hover:border-[#00ff87]/50 transition-all shadow-xl`}
+                className="glass-card rounded-3xl border border-[#192234] bg-[#0b0f19] p-6 flex flex-col justify-between space-y-5 relative group hover:border-[#00ff87]/50 transition-all shadow-xl"
               >
-                {/* Cabeçalho do Cartão */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-7 rounded-md bg-gradient-to-tr from-amber-400 to-yellow-200 border border-amber-300/40 shadow-inner flex items-center justify-center">
-                      <span className="w-3 h-2.5 border border-amber-800/40 rounded-sm"></span>
-                    </div>
+                {/* Cabeçalho do Cartão com Imagem PNG Real */}
+                <div className="flex items-center justify-between border-b border-[#192234] pb-4">
+                  <div className="flex items-center gap-3.5">
+                    <CardVisual 
+                      image={card.image} 
+                      cardName={card.name} 
+                      digits={card.digits} 
+                      variant="badge" 
+                    />
                     <div>
                       <h4 className="font-bold text-sm text-white">{card.name}</h4>
                       <span className="text-[11px] font-mono text-[#94a3b8]">{card.digits || '•••• ????'}</span>

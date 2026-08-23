@@ -10,34 +10,42 @@ import {
   Trash2,
   Check,
   X,
-  ChevronDown,
   User,
   Users,
   TrendingUp,
   TrendingDown,
-  Wallet
+  Image as ImageIcon
 } from 'lucide-react';
+import BankIcon from './BankIcon';
+import CardVisual from './CardVisual';
+import { 
+  PRESET_BANK_ICONS, 
+  PRESET_CARD_IMAGES, 
+  findBankPreset, 
+  findCardPreset 
+} from '../constants/assetOptions';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
-
-const CARD_GRADIENTS = [
-  { id: 'purple', label: 'Roxo (Nubank)', value: 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]', border: 'border-purple-500/30', accent: '#a855f7' },
-  { id: 'cyan',   label: 'Azul (MP)',     value: 'from-sky-900/60 via-blue-950/80 to-[#0b0f19]',      border: 'border-cyan-500/30',   accent: '#06b6d4' },
-  { id: 'amber',  label: 'Âmbar (Itaú)', value: 'from-amber-950/60 via-slate-900/80 to-[#0b0f19]',  border: 'border-amber-500/30',  accent: '#f59e0b' },
-  { id: 'emerald',label: 'Verde',         value: 'from-emerald-950/60 via-slate-900/80 to-[#0b0f19]',border: 'border-emerald-500/30',accent: '#10b981' },
-  { id: 'rose',   label: 'Rosa',          value: 'from-rose-950/60 via-slate-900/80 to-[#0b0f19]',   border: 'border-rose-500/30',   accent: '#f43f5e' },
-  { id: 'slate',  label: 'Cinza',         value: 'from-slate-800/60 via-slate-900/80 to-[#0b0f19]',  border: 'border-slate-500/30',  accent: '#94a3b8' },
-];
-
-const BANK_EMOJIS = ['🏦','🏛️','💳','💰','🟣','🔵','🟠','🟢','⚡','💎','🌐','🔐'];
 
 const COMMON_EMOJIS = {
   expense: ['🍔','🏠','🎮','🏥','🚗','📦','✈️','🎓','💼','🛒','🧾','📱','💡','🚿','🎬','🏋️','🐾','👕','🔧','📚'],
   income:  ['💼','📈','🟢','💰','🎁','🏆','💵','🤝','🔄','🌟']
 };
 
-const EMPTY_CARD = { name: '', owner: 'eu', limitTotal: '', dueDay: '10', gradient: 'purple', digits: '' };
-const EMPTY_ACCOUNT = { name: '', emoji: '🏦' };
+const EMPTY_CARD = { 
+  name: '', 
+  owner: 'eu', 
+  limitTotal: '', 
+  dueDay: '10', 
+  digits: '', 
+  image: PRESET_CARD_IMAGES[0].path 
+};
+
+const EMPTY_ACCOUNT = { 
+  name: '', 
+  icon: PRESET_BANK_ICONS[0].path 
+};
+
 const EMPTY_CATEGORY = { name: '', type: 'expense', emoji: '🏷️' };
 const EMPTY_RECURRING = { name: '', type: 'expense', emoji: '🏷️', value: '' };
 
@@ -108,7 +116,7 @@ function EmojiPicker({ emojis, selected, onSelect }) {
   );
 }
 
-// ─── MODULE 1: Cartões ────────────────────────────────────────────────────────
+// ─── MODULE 1: Cartões (Com Seleção Visual PNG) ───────────────────────────────
 
 function CardsManager({ cards, onAdd, onEdit, onDelete }) {
   const [modal, setModal] = useState(null);
@@ -122,33 +130,31 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
       owner: card.owner || 'eu',
       limitTotal: card.limitTotal,
       dueDay: card.dueDay || '10',
-      gradient: card.gradient || 'purple',
       digits: card.digits || '',
+      image: card.image || findCardPreset(card.name)?.path || PRESET_CARD_IMAGES[0].path
     });
     setModal(card);
   };
 
   const handleSave = () => {
     if (!form.name.trim() || !form.limitTotal) return;
-    const grad = CARD_GRADIENTS.find(g => g.id === form.gradient) || CARD_GRADIENTS[0];
+    const cardPreset = findCardPreset(form.image || form.name);
     const payload = {
       name: form.name.trim(),
       owner: form.owner,
       limitTotal: parseFloat(form.limitTotal) || 0,
       limitUsed: modal === 'add' ? 0 : (modal.limitUsed || 0),
-      dueDay: form.dueDay,
-      gradient: form.gradient,
+      dueDay: form.dueDay || '10',
       digits: form.digits || `•••• ${Math.floor(1000 + Math.random() * 9000)}`,
-      colorGradient: grad.value,
-      borderColor: grad.border,
-      accent: grad.accent,
+      image: form.image || cardPreset.path,
+      colorGradient: cardPreset.gradient,
+      borderColor: cardPreset.border,
+      accent: cardPreset.accent,
     };
     if (modal === 'add') onAdd({ id: uid(), ...payload });
     else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
-
-  const gradInfo = CARD_GRADIENTS.find(g => g.id === form.gradient) || CARD_GRADIENTS[0];
 
   return (
     <div className="space-y-4">
@@ -161,43 +167,55 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {cards.map(card => {
-          const grad = CARD_GRADIENTS.find(g => g.id === card.gradient) || CARD_GRADIENTS[0];
           const usedPct = card.limitTotal > 0 ? Math.min(100, (card.limitUsed / card.limitTotal) * 100) : 0;
           return (
-            <div key={card.id} className={`p-4 rounded-2xl bg-gradient-to-br ${card.colorGradient || grad.value} border ${card.borderColor || grad.border} space-y-3 relative group`}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs font-extrabold text-white">{card.name}</p>
-                  <p className="text-[10px] text-[#94a3b8] font-mono mt-0.5">{card.digits || '•••• ????'}</p>
+            <div key={card.id} className="p-5 rounded-3xl bg-[#0c121e] border border-[#192234] hover:border-purple-500/50 space-y-4 relative group shadow-xl transition-all">
+              {/* Cabeçalho com Visual PNG do Cartão */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <CardVisual 
+                    image={card.image} 
+                    cardName={card.name} 
+                    digits={card.digits} 
+                    variant="badge" 
+                  />
+                  <div>
+                    <p className="text-sm font-extrabold text-white">{card.name}</p>
+                    <p className="text-[11px] text-[#94a3b8] font-mono mt-0.5">{card.digits || '•••• ????'}</p>
+                  </div>
                 </div>
                 <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => openEdit(card)} className="p-1.5 rounded-lg bg-[#121927]/80 text-[#94a3b8] hover:text-white border border-[#192234] transition-all cursor-pointer"><Pencil size={13} /></button>
                   <button onClick={() => setDeleteTarget(card)} className="p-1.5 rounded-lg bg-[#121927]/80 text-[#94a3b8] hover:text-red-400 border border-[#192234] transition-all cursor-pointer"><Trash2 size={13} /></button>
                 </div>
               </div>
-              <div className="space-y-1">
+
+              {/* Barra de Limite */}
+              <div className="space-y-1 pt-1">
                 <div className="flex justify-between text-[10px] text-[#94a3b8]">
                   <span>Limite usado</span>
                   <span className="font-mono font-bold text-white">{usedPct.toFixed(0)}%</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${usedPct}%`, background: grad.accent }} />
+                  <div className="h-full rounded-full bg-[#00ff87] transition-all" style={{ width: `${usedPct}%` }} />
                 </div>
               </div>
-              <div className="flex justify-between text-[10px]">
+
+              {/* Dados Adicionais */}
+              <div className="flex justify-between text-[11px] pt-1 border-t border-[#192234]/80">
                 <span className="text-[#64748b]">Limite total</span>
                 <span className="font-mono font-bold text-white">
-                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limitTotal)}
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(card.limitTotal || 0)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-[#64748b]">Vencimento</span>
-                <span className="text-[10px] font-bold text-amber-300">Dia {card.dueDay || '10'}</span>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#64748b]">Vencimento</span>
+                <span className="font-bold text-amber-300">Dia {card.dueDay || '10'}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {card.owner === 'eu'
-                  ? <><User size={11} className="text-cyan-400" /><span className="text-[10px] text-cyan-400 font-semibold">Meu</span></>
-                  : <><Users size={11} className="text-pink-400" /><span className="text-[10px] text-pink-400 font-semibold">Noiva</span></>}
+                  ? <><User size={11} className="text-cyan-400" /><span className="text-[10px] text-cyan-400 font-semibold">Meu Cartão</span></>
+                  : <><Users size={11} className="text-pink-400" /><span className="text-[10px] text-pink-400 font-semibold">Cartão Noiva</span></>}
               </div>
             </div>
           );
@@ -210,17 +228,55 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
         </div>
       )}
 
-      {/* Modal Add/Edit */}
+      {/* Modal Add/Edit Cartão */}
       {modal !== null && (
         <Modal title={modal === 'add' ? 'Novo Cartão' : `Editar — ${modal.name}`} onClose={() => setModal(null)}>
           <div>
             <label className={labelCls}>Nome do Cartão</label>
             <input className={inputCls} placeholder="Ex: Nubank Ultravioleta" value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))} />
           </div>
+
+          {/* SELEÇÃO VISUAL DA IMAGEM DO CARTÃO (PNG) */}
+          <div>
+            <label className={labelCls}>
+              Selecione o Modelo do Cartão (PNG)
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto custom-scrollbar p-1 bg-[#090d16] border border-[#192234] rounded-2xl">
+              {PRESET_CARD_IMAGES.map(c => {
+                const isSelected = form.image === c.path;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setForm(p => ({
+                        ...p,
+                        image: c.path,
+                        name: p.name || c.name
+                      }));
+                    }}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 group ${
+                      isSelected
+                        ? 'border-2 border-[#00ff87] bg-[#00ff87]/15 shadow-[0_0_15px_rgba(0,255,135,0.35)] scale-[1.02]'
+                        : 'bg-[#0d1320] border-[#192234] hover:border-purple-500/40 opacity-85 hover:opacity-100'
+                    }`}
+                  >
+                    <CardVisual image={c.path} cardName={c.name} variant="thumbnail" className="w-full h-11" />
+                    <div className="w-full text-center">
+                      <p className={`text-[10px] font-bold truncate ${isSelected ? 'text-[#00ff87]' : 'text-white'}`}>{c.name}</p>
+                      <p className="text-[9px] text-[#64748b] truncate">{c.bank}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <label className={labelCls}>Número (últimos 4 dígitos)</label>
             <input className={inputCls} placeholder="Ex: 4892" maxLength={4} value={form.digits.replace('•••• ','')} onChange={e => setForm(p => ({...p, digits: `•••• ${e.target.value}`}))} />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Limite Total (R$)</label>
@@ -231,6 +287,7 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
               <input type="number" className={inputCls} min="1" max="31" placeholder="10" value={form.dueDay} onChange={e => setForm(p => ({...p, dueDay: e.target.value}))} />
             </div>
           </div>
+
           <div>
             <label className={labelCls}>Responsável</label>
             <div className="flex gap-2">
@@ -242,22 +299,18 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
               ))}
             </div>
           </div>
+
+          {/* Prévia em Destaque */}
           <div>
-            <label className={labelCls}>Cor / Identidade Visual</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {CARD_GRADIENTS.map(g => (
-                <button key={g.id} type="button" onClick={() => setForm(p => ({...p, gradient: g.id}))}
-                  className={`py-2 px-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-gradient-to-br ${g.value} ${g.border} ${form.gradient === g.id ? 'ring-2 ring-amber-500/60 scale-105' : 'opacity-70 hover:opacity-100'}`}>
-                  {g.label}
-                </button>
-              ))}
-            </div>
+            <label className={labelCls}>Pré-visualização do Cartão</label>
+            <CardVisual 
+              image={form.image} 
+              cardName={form.name || 'Nome do Cartão'} 
+              digits={form.digits || '•••• 0000'} 
+              variant="full" 
+            />
           </div>
-          {/* Preview */}
-          <div className={`p-3 rounded-2xl bg-gradient-to-br ${gradInfo.value} border ${gradInfo.border} text-center`}>
-            <p className="text-xs font-bold text-white">{form.name || 'Pré-visualização'}</p>
-            <p className="text-[10px] text-[#94a3b8] font-mono">{form.digits || '•••• ????'} · Dia {form.dueDay}</p>
-          </div>
+
           <div className="flex gap-3 pt-1">
             <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl border border-[#192234] text-xs text-[#94a3b8] hover:bg-[#121927] transition-all cursor-pointer">Cancelar</button>
             <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold hover:bg-purple-500/30 transition-all cursor-pointer flex items-center justify-center gap-2">
@@ -274,7 +327,7 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
   );
 }
 
-// ─── MODULE 2: Contas Bancárias ───────────────────────────────────────────────
+// ─── MODULE 2: Contas Bancárias (Com Seleção Visual PNG) ───────────────────────
 
 function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
   const [modal, setModal] = useState(null);
@@ -282,11 +335,21 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const openAdd = () => { setForm(EMPTY_ACCOUNT); setModal('add'); };
-  const openEdit = (acc) => { setForm({ name: acc.name, emoji: acc.emoji || '🏦' }); setModal(acc); };
+  const openEdit = (acc) => { 
+    setForm({ 
+      name: acc.name, 
+      icon: acc.icon || acc.image || findBankPreset(acc.name)?.path || PRESET_BANK_ICONS[0].path 
+    }); 
+    setModal(acc); 
+  };
 
   const handleSave = () => {
     if (!form.name.trim()) return;
-    const payload = { name: form.name.trim(), emoji: form.emoji };
+    const bankPreset = findBankPreset(form.icon || form.name);
+    const payload = { 
+      name: form.name.trim(), 
+      icon: form.icon || bankPreset.path 
+    };
     if (modal === 'add') onAdd({ id: uid(), type: 'corrente', balance: 0, ...payload });
     else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
@@ -303,11 +366,9 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {accounts.map(acc => (
-          <div key={acc.id} className="p-4 rounded-2xl bg-[#0d1320] border border-[#192234] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group">
+          <div key={acc.id} className="p-4 rounded-2xl bg-[#0d1320] border border-[#192234] hover:border-cyan-500/30 transition-all flex items-center justify-between gap-3 group shadow-md">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#121927] border border-[#192234] flex items-center justify-center text-xl">
-                {acc.emoji || '🏦'}
-              </div>
+              <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="lg" />
               <div>
                 <p className="text-sm font-bold text-white">{acc.name}</p>
                 <p className="text-[10px] text-[#64748b] font-mono mt-0.5">
@@ -335,10 +396,40 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
             <label className={labelCls}>Nome do Banco / Carteira</label>
             <input className={inputCls} placeholder="Ex: Nubank, Itaú, Dinheiro Físico" value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))} />
           </div>
+
+          {/* SELEÇÃO VISUAL DO ÍCONE DO BANCO (PNG) */}
           <div>
-            <label className={labelCls}>Emoji / Ícone</label>
-            <EmojiPicker emojis={BANK_EMOJIS} selected={form.emoji} onSelect={e => setForm(p => ({...p, emoji: e}))} />
+            <label className={labelCls}>Selecione o Ícone do Banco (PNG)</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto custom-scrollbar p-1.5 bg-[#090d16] border border-[#192234] rounded-2xl">
+              {PRESET_BANK_ICONS.map(b => {
+                const isSelected = form.icon === b.path;
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      setForm(p => ({
+                        ...p,
+                        icon: b.path,
+                        name: p.name || b.name
+                      }));
+                    }}
+                    className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 group ${
+                      isSelected
+                        ? 'border-2 border-[#00ff87] bg-[#00ff87]/15 shadow-[0_0_15px_rgba(0,255,135,0.35)] scale-[1.02]'
+                        : 'bg-[#0d1320] border-[#192234] hover:border-cyan-500/40 opacity-85 hover:opacity-100'
+                    }`}
+                  >
+                    <BankIcon src={b.path} bankName={b.name} size="lg" />
+                    <span className={`text-xs font-bold truncate w-full ${isSelected ? 'text-[#00ff87]' : 'text-white'}`}>
+                      {b.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
           <div className="flex gap-3 pt-1">
             <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl border border-[#192234] text-xs text-[#94a3b8] hover:bg-[#121927] transition-all cursor-pointer">Cancelar</button>
             <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-bold hover:bg-cyan-500/30 transition-all cursor-pointer flex items-center justify-center gap-2">
@@ -591,8 +682,8 @@ function RecurringManager({ items, onAdd, onEdit, onDelete }) {
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 const MODULES = [
-  { id: 'cards',      label: 'Cartões de Crédito',     icon: CreditCard, color: 'purple', description: 'Gerencie limites, datas e responsáveis' },
-  { id: 'accounts',  label: 'Contas Bancárias',        icon: Landmark,   color: 'cyan',   description: 'Bancos, carteiras e contas digitais' },
+  { id: 'cards',      label: 'Cartões de Crédito',     icon: CreditCard, color: 'purple', description: 'Gerencie limites, datas e imagens' },
+  { id: 'accounts',  label: 'Contas Bancárias',        icon: Landmark,   color: 'cyan',   description: 'Bancos, carteiras e ícones PNG' },
   { id: 'categories',label: 'Categorias',              icon: Tag,        color: 'emerald',description: 'Entradas e saídas por categoria' },
   { id: 'recurring', label: 'Gastos & Rendas Vigentes',icon: Repeat2,    color: 'amber',  description: 'Despesas fixas e rendas recorrentes' },
 ];
@@ -631,12 +722,12 @@ export default function ControlCenterModule({
             <span>Central de Controle</span>
           </h3>
           <p className="text-xs sm:text-sm text-[#94a3b8] sm:ml-[52px]">
-            Gerencie cartões, contas, categorias e itens recorrentes — alterações são propagadas instantaneamente em todo o app
+            Cadastre cartões, contas com ícones PNG reais, categorias e rendas — tudo com sincronização em tempo real
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold self-start sm:self-auto">
           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          Sincronizado • LocalStorage
+          Sincronizado • Imagens PNG
         </div>
       </div>
 

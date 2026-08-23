@@ -19,6 +19,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import VisualDateRangePicker from './VisualDateRangePicker';
+import CardVisual from './CardVisual';
 
 // Dados Mockados Robustos para a Dashline
 const MOCK_MONTHLY_PROFIT = [
@@ -598,6 +599,21 @@ export default function Dashline({
             ))}
           </div>
         </div>
+
+        {/* Cartões Ativos com Imagem Real */}
+        {cards && cards.length > 0 && (
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 custom-scrollbar">
+            {cards.map(c => (
+              <div key={c.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#0e1422] border border-[#192234] shrink-0">
+                <CardVisual image={c.image} cardName={c.name} digits={c.digits} variant="thumbnail" />
+                <div className="text-left">
+                  <p className="text-xs font-bold text-white truncate">{c.name}</p>
+                  <p className="text-[10px] text-[#64748b] font-mono">{c.digits || '•••• 0000'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Conteúdo do Bloco Cartões em Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

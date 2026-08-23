@@ -189,7 +189,7 @@ export default function EditTransactionModal({
               >
                 {bankAccounts.map(acc => (
                   <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                    {acc.emoji || '🏦'} {acc.name}
+                    {acc.name}
                   </option>
                 ))}
               </select>

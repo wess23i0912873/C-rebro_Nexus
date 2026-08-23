@@ -6,6 +6,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
+import BankIcon from './BankIcon';
 
 function getBankBadge(acc) {
   if (!acc) return { logo: '🏛️', color: '#192234', label: 'Conta' };
@@ -261,16 +262,17 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
               } flex items-center justify-center transition-all cursor-pointer`}
               title={selectedAccountObj?.name || 'Selecionar Conta'}
             >
-              <span className="text-base">
-                {accountBadge.logo}
-              </span>
+              <BankIcon 
+                src={selectedAccountObj?.icon || selectedAccountObj?.image} 
+                bankName={selectedAccountObj?.name} 
+                size="sm" 
+              />
             </button>
 
             {/* Menu Suspenso Flutuante (z-50) */}
             {isAccountOpen && (
               <div className="absolute top-full left-0 mt-1 z-50 w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.9)] p-1.5 space-y-1">
                 {bankAccounts.map(acc => {
-                  const b = getBankBadge(acc);
                   const isSelected = formData.accountId === acc.id;
                   return (
                     <button
@@ -287,9 +289,7 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
                         isSelected ? 'bg-[#00ff87]/15 text-[#00ff87] border border-[#00ff87]/30' : 'text-white hover:bg-[#121927]'
                       }`}
                     >
-                      <span className="text-base shrink-0">
-                        {b.logo}
-                      </span>
+                      <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
                       <span className="truncate">{acc.name}</span>
                     </button>
                   );

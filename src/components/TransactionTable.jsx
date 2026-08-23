@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Search, Trash2, Pencil, CheckCircle, AlertCircle } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import EditTransactionModal from './EditTransactionModal';
+import BankIcon from './BankIcon';
 
 const CATEGORY_EMOJIS = {
   'Alimentação': '🍔',
@@ -60,8 +61,8 @@ export default function TransactionTable({
 
   const getAccountInfo = (id) => {
     const account = bankAccounts.find(a => a.id === id);
-    if (!account) return { name: 'Outra', emoji: '🏛️' };
-    return { name: account.name, emoji: account.emoji || '🏛️' };
+    if (!account) return { name: 'Outra', icon: '/imagens/icones_de_banco/icone_banco-outros.png' };
+    return { name: account.name, icon: account.icon || account.image };
   };
 
   const getDynamicCategoryEmoji = (catName) => {
@@ -220,8 +221,8 @@ export default function TransactionTable({
 
                     {/* 3. Conta */}
                     <td className="px-5 py-3.5 whitespace-nowrap text-white font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span>{accInfo.emoji}</span>
+                      <span className="inline-flex items-center gap-2">
+                        <BankIcon src={accInfo.icon} bankName={accInfo.name} size="xs" />
                         <span>{accInfo.name}</span>
                       </span>
                     </td>
