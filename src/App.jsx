@@ -4,6 +4,7 @@ import FinancialNavTabs from './components/FinancialNavTabs';
 import Dashline from './components/Dashline';
 import CardsModule from './components/CardsModule';
 import PreenchimentoModule from './components/PreenchimentoModule';
+import SimulacaoModule from './components/SimulacaoModule';
 import { supabase } from './lib/supabaseClient';
 import { Bell } from 'lucide-react';
 
@@ -436,6 +437,14 @@ export default function App() {
                   onConfirmPayment={handleConfirmPayment}
                   onUpdateStatus={handleUpdateStatus}
                   onUpdateCategory={handleUpdateCategory}
+                />
+              )}
+
+              {/* ABA 4: SIMULAÇÕES (Simulador de Impacto de Compras) */}
+              {activeSubTab === 'simulacoes' && (
+                <SimulacaoModule
+                  transactions={transactions}
+                  bankAccounts={bankAccounts}
                 />
               )}
             </>

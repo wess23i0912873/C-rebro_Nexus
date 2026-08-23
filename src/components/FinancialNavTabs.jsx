@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, CreditCard, Edit3 } from 'lucide-react';
+import { LayoutDashboard, CreditCard, Edit3, Calculator } from 'lucide-react';
 
 export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
   const tabs = [
@@ -23,6 +23,13 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
       icon: Edit3,
       status: null,
       description: 'Lançamentos e Gestão'
+    },
+    {
+      id: 'simulacoes',
+      label: 'Simulações',
+      icon: Calculator,
+      status: null,
+      description: 'Impacto de Compras'
     }
   ];
 
@@ -39,11 +46,13 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
               onClick={() => setActiveSubTab(tab.id)}
               className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
                 isActive
-                  ? 'bg-[#00ff87]/10 text-[#00ff87] border border-[#00ff87]/30 shadow-[0_0_15px_rgba(0,255,135,0.15)] font-bold'
+                  ? tab.id === 'simulacoes'
+                    ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)] font-bold'
+                    : 'bg-[#00ff87]/10 text-[#00ff87] border border-[#00ff87]/30 shadow-[0_0_15px_rgba(0,255,135,0.15)] font-bold'
                   : 'text-[#94a3b8] hover:text-white hover:bg-[#101625] border border-transparent'
               }`}
             >
-              <Icon size={16} className={isActive ? 'text-[#00ff87]' : 'text-[#64748b]'} />
+              <Icon size={16} className={isActive ? (tab.id === 'simulacoes' ? 'text-purple-400' : 'text-[#00ff87]') : 'text-[#64748b]'} />
               <span>{tab.label}</span>
               {tab.status && (
                 <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[#192234] text-[#64748b] font-normal uppercase">
@@ -62,3 +71,4 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
     </div>
   );
 }
+
