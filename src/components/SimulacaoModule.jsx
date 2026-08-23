@@ -19,7 +19,8 @@ import {
   Lightbulb,
   Clock,
   Check,
-  Percent
+  Percent,
+  ChevronDown
 } from 'lucide-react';
 
 // ─── Cartões Mock (sincronizado com CardsModule) ─────────────────────────────
@@ -245,6 +246,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
   const [formaPgto, setFormaPgto] = useState('cartao');
   const [selectedCard, setSelectedCard] = useState(MOCK_CARDS[0].id);
   const [simulado, setSimulado] = useState(false);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
 
   // ── Dados do App ────────────────────────────────────────────────────────────
   const totalIncome = useMemo(() => {
@@ -344,16 +346,10 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
       };
     });
 
-    // 1. Melhor Marco de Data: Prioriza quando o comprometimento cai < 60% ou quando o alívio mensal cobre a maior parte da parcela
+    // 1. Melhor Marco de Data
     const bestDateMilestone = milestones.find(m => m.futureCommitPct < 60) || milestones[milestones.length - 1] || milestones[0];
 
-    // 2. Melhor Sugestão de Parcelamento Inteligente Alternativo:
-    // Analisa parcelas alternativas (ex: 18x ou 24x ou um valor que encaixe com folga no orçamento)
-    let recommendedParcelas = parcelas;
-    let recommendedInstallmentValue = monthlyInstallment;
-    let recommendedCommitPct = newCommitPct;
-
-    // Testa opções de 18x, 24x ou 10x dependendo da situação
+    // 2. Parcelamento Alternativo
     const optionsToTest = [6, 10, 12, 15, 18, 24].filter(p => p !== parcelas);
     const safeOption = optionsToTest.find(p => {
       const instVal = numericValor / p;
@@ -361,19 +357,62 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
       return cPct < 60;
     }) || (parcelas < 18 ? 18 : 24);
 
-    recommendedParcelas = safeOption;
-    recommendedInstallmentValue = numericValor / recommendedParcelas;
-    recommendedCommitPct = ((fixedExpenses + recommendedInstallmentValue) / totalIncome) * 100;
-
-    // Quantas faturas acabam dentro do prazo do parcelamento sugerido
+    const recommendedParcelas = safeOption;
+    const recommendedInstallmentValue = numericValor / recommendedParcelas;
+    const recommendedCommitPct = ((fixedExpenses + recommendedInstallmentValue) / totalIncome) * 100;
     const faturasLivreInRecommended = existingInstallments.filter(ei => ei.monthsLeft <= recommendedParcelas).length;
+
+    // 3. Comparativos visuais "Comprar Agora" vs "Comprar na Melhor Data"
+    // --- Cenário A: Comprar AGORA ---
+    const nowCommitPct = newCommitPct;
+    const nowMonthlyTotal = fixedExpenses + monthlyInstallment;
+    const nowTotalSpentInPeriod = (fixedExpenses * parcelas) + numericValor;
+    // Alívio que ocorre DURANTE o período se comprar agora
+    const nowReliefInstallments = existingInstallments.filter(ei => ei.monthsLeft <= parcelas);
+    const nowReliefMonthly = nowReliefInstallments.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
+    const nowBestCommitAfterRelief = totalIncome > 0
+      ? ((fixedExpenses - nowReliefMonthly + monthlyInstallment) / totalIncome) * 100
+      : 0;
+
+    // --- Cenário B: Comprar na DATA SUGERIDA ---
+    const laterFixedExpenses = Math.max(0, fixedExpenses - bestDateMilestone.freedMonthlyAmount);
+    const laterCommitPct = bestDateMilestone.futureCommitPct;
+    const laterMonthlyTotal = laterFixedExpenses + monthlyInstallment;
+    const laterTotalSpentInPeriod = (laterFixedExpenses * parcelas) + numericValor;
+    // Alívios adicionais que ocorrem se esperar + comprar
+    const laterAdditionalRelief = existingInstallments
+      .filter(ei => ei.monthsLeft > bestDateMilestone.monthsToWait && ei.monthsLeft <= bestDateMilestone.monthsToWait + parcelas);
+    const laterAdditionalReliefMonthly = laterAdditionalRelief.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
+    const laterBestCommitAfterRelief = totalIncome > 0
+      ? ((laterFixedExpenses - laterAdditionalReliefMonthly + monthlyInstallment) / totalIncome) * 100
+      : 0;
 
     return {
       bestDateMilestone,
       recommendedParcelas,
       recommendedInstallmentValue,
       recommendedCommitPct,
-      faturasLivreInRecommended
+      faturasLivreInRecommended,
+      // Comparativo visual
+      comparison: {
+        now: {
+          commitPct: nowCommitPct,
+          monthlyTotal: nowMonthlyTotal,
+          totalSpentInPeriod: nowTotalSpentInPeriod,
+          reliefMonthly: nowReliefMonthly,
+          reliefCount: nowReliefInstallments.length,
+          bestCommitAfterRelief: Math.max(0, nowBestCommitAfterRelief),
+        },
+        later: {
+          commitPct: laterCommitPct,
+          monthlyTotal: laterMonthlyTotal,
+          totalSpentInPeriod: laterTotalSpentInPeriod,
+          additionalReliefMonthly: laterAdditionalReliefMonthly,
+          additionalReliefCount: laterAdditionalRelief.length,
+          bestCommitAfterRelief: Math.max(0, laterBestCommitAfterRelief),
+          monthsToWait: bestDateMilestone.monthsToWait,
+        }
+      }
     };
   }, [numericValor, parcelas, monthlyInstallment, fixedExpenses, totalIncome, newCommitPct, existingInstallments]);
 
@@ -687,89 +726,290 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
               {/* 1. Alerta de Comprometimento de Renda */}
               <CommitmentAlert commitPct={newCommitPct} />
 
-              {/* 2. NOVO BLOCO: SUGESTÃO INTELIGENTE DE COMPRA */}
+              {/* 2. SUGESTÃO INTELIGENTE — COMPACTA & COLAPSÁVEL */}
               {smartSuggestions && (
-                <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-950/40 via-[#0b0f19] to-[#080c14] border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.18)] space-y-5 animate-fade-in relative overflow-hidden">
-                  
-                  {/* Background Glow */}
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+                <div className={`rounded-3xl bg-gradient-to-br from-purple-950/40 via-[#0b0f19] to-[#080c14] border transition-all duration-500 relative overflow-hidden ${
+                  suggestionOpen
+                    ? 'border-purple-500/50 shadow-[0_0_40px_rgba(168,85,247,0.22)]'
+                    : 'border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.10)] hover:border-purple-500/50'
+                }`}>
 
-                  {/* Header do Card Inteligente */}
-                  <div className="flex items-center justify-between pb-3 border-b border-purple-500/20">
+                  {/* Background Glow */}
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/8 rounded-full blur-3xl pointer-events-none" />
+
+                  {/* ── Header Clicável (sempre visível) ── */}
+                  <button
+                    type="button"
+                    onClick={() => setSuggestionOpen(!suggestionOpen)}
+                    className="w-full flex items-center justify-between px-5 py-4 cursor-pointer group transition-all"
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                        <Lightbulb size={22} className="animate-pulse" />
+                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all duration-300 ${
+                        suggestionOpen
+                          ? 'bg-purple-500/25 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.35)]'
+                          : 'bg-purple-500/15 border-purple-500/30 text-purple-400'
+                      }`}>
+                        <Lightbulb size={18} className={suggestionOpen ? 'animate-pulse' : ''} />
                       </div>
-                      <div>
-                        <h4 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
+                      <div className="text-left">
+                        <h4 className="text-sm font-extrabold text-white tracking-tight flex items-center gap-2">
                           <span>Sugestão Inteligente de Compra</span>
-                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 uppercase font-bold">
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 uppercase font-bold">
                             IA Analítica
                           </span>
                         </h4>
-                        <p className="text-xs text-[#94a3b8]">Otimização de fluxo financeiro baseada nas faturas existentes</p>
+                        {!suggestionOpen && (
+                          <p className="text-[11px] text-[#94a3b8] mt-0.5 flex items-center gap-1.5">
+                            <span>Data ideal:</span>
+                            <span className="font-mono font-bold text-[#00ff87]">{smartSuggestions.bestDateMilestone.targetDate}</span>
+                            <span className="text-[#475569]">•</span>
+                            <span>Comprometimento cai para</span>
+                            <span className="font-mono font-bold text-[#00ff87]">{smartSuggestions.bestDateMilestone.futureCommitPct.toFixed(1)}%</span>
+                          </p>
+                        )}
                       </div>
                     </div>
-                  </div>
+                    <div className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all duration-300 ${
+                      suggestionOpen
+                        ? 'bg-purple-500/20 border-purple-500/40 text-purple-300 rotate-180'
+                        : 'bg-[#121927] border-[#192234] text-[#64748b] group-hover:border-purple-500/40 group-hover:text-purple-400'
+                    }`}>
+                      <ChevronDown size={16} />
+                    </div>
+                  </button>
 
-                  {/* Recomendações em 2 Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    
-                    {/* Recomendação 1: Melhor Data / Mês para Comprar */}
-                    <div className="p-4 rounded-2xl bg-[#0d1320]/80 border border-purple-500/30 flex flex-col justify-between space-y-3 shadow-md hover:border-purple-500/60 transition-all">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
+                  {/* ── Conteúdo Expandível ── */}
+                  <div className={`transition-all duration-500 ease-in-out overflow-hidden ${
+                    suggestionOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}>
+                    <div className="px-5 pb-5 space-y-5">
+
+                      {/* Separador superior */}
+                      <div className="h-px bg-purple-500/20" />
+
+                      {/* ═══ CARD 1: Melhor Momento para Comprar ═══ */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
                           <Calendar size={15} className="text-purple-400" />
-                          <span>Melhor Momento para Comprar</span>
+                          <h5 className="text-xs font-bold text-purple-300 uppercase tracking-wider">Melhor Momento para Comprar</h5>
                         </div>
-                        <p className="text-xs text-slate-200 leading-relaxed">
-                          Seria melhor realizar essa compra na data{' '}
-                          <strong className="text-[#00ff87] font-mono text-sm underline decoration-emerald-500/60 underline-offset-2">
-                            {smartSuggestions.bestDateMilestone.targetDate}
-                          </strong>{' '}
-                          ({smartSuggestions.bestDateMilestone.targetMonthYear}), pois você estará livre de{' '}
-                          <strong className="text-amber-300">{smartSuggestions.bestDateMilestone.freedCount} parcela(s)</strong> e terá{' '}
-                          <strong className="text-[#00ff87] font-mono">{fmt(smartSuggestions.bestDateMilestone.freedMonthlyAmount)}</strong> livres mensais para investir nessa aquisição.
-                        </p>
-                      </div>
 
-                      <div className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-[11px] text-purple-200 flex items-center justify-between">
-                        <span>Comprometimento futuro cai para:</span>
-                        <span className="font-bold font-mono text-[#00ff87]">
-                          {smartSuggestions.bestDateMilestone.futureCommitPct.toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Recomendação 2: Sugestão Alternativa de Parcelamento */}
-                    <div className="p-4 rounded-2xl bg-[#0d1320]/80 border border-[#00ff87]/30 flex flex-col justify-between space-y-3 shadow-md hover:border-[#00ff87]/60 transition-all">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-bold text-[#00ff87]">
-                          <Percent size={15} className="text-[#00ff87]" />
-                          <span>Parcelamento Inteligente Alternativo</span>
+                        {/* Data em DESTAQUE CENTRAL */}
+                        <div className="flex items-center justify-center">
+                          <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-500/20 via-[#00ff87]/10 to-purple-500/20 border border-[#00ff87]/40 text-center shadow-[0_0_25px_rgba(0,255,135,0.15)]">
+                            <p className="text-[10px] text-[#94a3b8] uppercase tracking-widest font-bold mb-0.5">Data Recomendada</p>
+                            <p className="text-2xl font-black font-mono text-[#00ff87] tracking-wide">
+                              {smartSuggestions.bestDateMilestone.targetDate}
+                            </p>
+                            <p className="text-[11px] text-[#94a3b8] mt-0.5">
+                              {smartSuggestions.bestDateMilestone.targetMonthYear} — livre de <strong className="text-amber-300">{smartSuggestions.bestDateMilestone.freedCount} parcela(s)</strong>
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-200 leading-relaxed">
-                          Ou, você pode parcelar esse valor em{' '}
-                          <strong className="text-[#00ff87] font-mono text-sm underline decoration-emerald-500/60 underline-offset-2">
-                            {smartSuggestions.recommendedParcelas}x de {fmt(smartSuggestions.recommendedInstallmentValue)}
-                          </strong>
-                          , pois nesse período você estará livre de{' '}
-                          <strong className="text-amber-300">{smartSuggestions.faturasLivreInRecommended} faturas</strong> e sua renda será menos comprometida{' '}
-                          (caindo de <strong>{newCommitPct.toFixed(1)}%</strong> para{' '}
-                          <strong className="text-[#00ff87]">{smartSuggestions.recommendedCommitPct.toFixed(1)}%</strong>).
-                        </p>
+
+                        {/* ── COMPARATIVO VISUAL: Agora vs. Data Sugerida ── */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                          {/* Cenário A: Se Comprar AGORA */}
+                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-red-500/20 hover:border-red-500/40 transition-all space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
+                                <XCircle size={13} />
+                                Se comprar agora
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 font-bold border border-red-500/30">Hoje</span>
+                            </div>
+
+                            {/* Barra de Comprometimento Agora */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-[#94a3b8]">Comprometimento</span>
+                                <span className={`font-black font-mono ${
+                                  smartSuggestions.comparison.now.commitPct >= 80 ? 'text-red-400' :
+                                  smartSuggestions.comparison.now.commitPct >= 70 ? 'text-orange-400' :
+                                  smartSuggestions.comparison.now.commitPct >= 60 ? 'text-yellow-400' : 'text-[#00ff87]'
+                                }`}>{smartSuggestions.comparison.now.commitPct.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-2.5 rounded-full bg-[#192234] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-700"
+                                  style={{
+                                    width: `${Math.min(100, smartSuggestions.comparison.now.commitPct)}%`,
+                                    background: smartSuggestions.comparison.now.commitPct >= 80 ? '#ef4444' :
+                                      smartSuggestions.comparison.now.commitPct >= 70 ? '#f97316' :
+                                      smartSuggestions.comparison.now.commitPct >= 60 ? '#f59e0b' : '#00ff87'
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Alívio durante o período */}
+                            {smartSuggestions.comparison.now.reliefCount > 0 && (
+                              <div className="px-2.5 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-[10px] text-emerald-400">
+                                <span className="flex items-center gap-1"><CheckCircle2 size={11} /> Alívio no período: <strong className="font-mono">{smartSuggestions.comparison.now.reliefCount}</strong> fatura(s) terminam → <strong className="font-mono">{smartSuggestions.comparison.now.bestCommitAfterRelief.toFixed(1)}%</strong> ao final</span>
+                              </div>
+                            )}
+
+                            {/* Mini-grid de métricas */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Saída Fixa / Mês</p>
+                                <p className="text-xs font-black font-mono text-rose-400 mt-0.5">{fmt(smartSuggestions.comparison.now.monthlyTotal)}</p>
+                              </div>
+                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Total no Período</p>
+                                <p className="text-xs font-black font-mono text-white mt-0.5">{fmt(smartSuggestions.comparison.now.totalSpentInPeriod)}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Cenário B: Se Comprar na DATA SUGERIDA */}
+                          <div className="p-4 rounded-2xl bg-[#0d1320] border border-[#00ff87]/25 hover:border-[#00ff87]/50 transition-all space-y-3 relative">
+                            {/* Badge recomendado */}
+                            <div className="absolute -top-2.5 right-3">
+                              <span className="text-[9px] px-2.5 py-1 rounded-full bg-[#00ff87]/20 text-[#00ff87] border border-[#00ff87]/40 font-black uppercase shadow-[0_0_10px_rgba(0,255,135,0.2)]">
+                                ✦ Recomendado
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-[#00ff87] uppercase tracking-wider flex items-center gap-1.5">
+                                <CheckCircle2 size={13} />
+                                Se comprar em {smartSuggestions.bestDateMilestone.targetMonthYear}
+                              </span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#00ff87]/10 text-[#00ff87] font-bold border border-[#00ff87]/30">
+                                +{smartSuggestions.comparison.later.monthsToWait}m
+                              </span>
+                            </div>
+
+                            {/* Barra de Comprometimento Depois */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-[#94a3b8]">Comprometimento</span>
+                                <span className={`font-black font-mono ${
+                                  smartSuggestions.comparison.later.commitPct >= 60 ? 'text-yellow-400' : 'text-[#00ff87]'
+                                }`}>{smartSuggestions.comparison.later.commitPct.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-2.5 rounded-full bg-[#192234] overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-700"
+                                  style={{
+                                    width: `${Math.min(100, smartSuggestions.comparison.later.commitPct)}%`,
+                                    background: smartSuggestions.comparison.later.commitPct >= 60 ? '#f59e0b' : '#00ff87'
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Alívio adicional futuro */}
+                            {smartSuggestions.comparison.later.additionalReliefCount > 0 && (
+                              <div className="px-2.5 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15 text-[10px] text-emerald-400">
+                                <span className="flex items-center gap-1"><CheckCircle2 size={11} /> Alívio extra: mais <strong className="font-mono">{smartSuggestions.comparison.later.additionalReliefCount}</strong> fatura(s) terminam → <strong className="font-mono">{smartSuggestions.comparison.later.bestCommitAfterRelief.toFixed(1)}%</strong> ao final</span>
+                              </div>
+                            )}
+
+                            {/* Mini-grid de métricas */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Saída Fixa / Mês</p>
+                                <p className="text-xs font-black font-mono text-emerald-400 mt-0.5">{fmt(smartSuggestions.comparison.later.monthlyTotal)}</p>
+                              </div>
+                              <div className="p-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                                <p className="text-[8px] text-[#64748b] uppercase font-bold">Total no Período</p>
+                                <p className="text-xs font-black font-mono text-white mt-0.5">{fmt(smartSuggestions.comparison.later.totalSpentInPeriod)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Barra de Economia Comparativa */}
+                        {(() => {
+                          const savings = smartSuggestions.comparison.now.monthlyTotal - smartSuggestions.comparison.later.monthlyTotal;
+                          const pctDrop = smartSuggestions.comparison.now.commitPct - smartSuggestions.comparison.later.commitPct;
+                          if (savings <= 0 && pctDrop <= 0) return null;
+                          return (
+                            <div className="p-3 rounded-xl bg-[#00ff87]/5 border border-[#00ff87]/20 flex items-center justify-between">
+                              <span className="text-[11px] text-[#94a3b8] flex items-center gap-1.5">
+                                <TrendingDown size={13} className="text-[#00ff87]" />
+                                <span>Economia mensal ao esperar:</span>
+                              </span>
+                              <div className="flex items-center gap-3">
+                                {savings > 0 && (
+                                  <span className="text-xs font-black font-mono text-[#00ff87]">
+                                    -{fmt(savings)}/mês
+                                  </span>
+                                )}
+                                {pctDrop > 0 && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#00ff87]/10 text-[#00ff87] font-bold font-mono border border-[#00ff87]/30">
+                                    ↓{pctDrop.toFixed(1)}pp
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => applySuggestedParcelas(smartSuggestions.recommendedParcelas)}
-                        className="w-full py-2 px-3 rounded-xl bg-[#00ff87]/15 hover:bg-[#00ff87]/25 text-[#00ff87] border border-[#00ff87]/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                      >
-                        <Check size={14} strokeWidth={2.5} />
-                        <span>Aplicar {smartSuggestions.recommendedParcelas}x na Simulação</span>
-                      </button>
-                    </div>
+                      {/* Separador */}
+                      <div className="h-px bg-[#192234]" />
 
+                      {/* ═══ CARD 2: Parcelamento Inteligente Alternativo ═══ */}
+                      <div className="p-4 rounded-2xl bg-[#0d1320]/80 border border-[#00ff87]/25 hover:border-[#00ff87]/50 transition-all space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Percent size={14} className="text-[#00ff87]" />
+                            <h5 className="text-xs font-bold text-[#00ff87] uppercase tracking-wider">Parcelamento Inteligente Alternativo</h5>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#00ff87]/10 text-[#00ff87] font-bold font-mono border border-[#00ff87]/30">
+                            {smartSuggestions.recommendedParcelas}x
+                          </span>
+                        </div>
+
+                        {/* Comparativo visual inline */}
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                            <p className="text-[8px] text-[#64748b] uppercase font-bold">Parcela</p>
+                            <p className="text-sm font-black font-mono text-[#00ff87] mt-0.5">{fmt(smartSuggestions.recommendedInstallmentValue)}</p>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                            <p className="text-[8px] text-[#64748b] uppercase font-bold">Compromet.</p>
+                            <p className="text-sm font-black font-mono text-[#00ff87] mt-0.5">{smartSuggestions.recommendedCommitPct.toFixed(1)}%</p>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                            <p className="text-[8px] text-[#64748b] uppercase font-bold">Faturas Livres</p>
+                            <p className="text-sm font-black font-mono text-amber-300 mt-0.5">{smartSuggestions.faturasLivreInRecommended}</p>
+                          </div>
+                        </div>
+
+                        {/* Barra comparativa: atual vs. sugerido */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-[#94a3b8] w-14 shrink-0">Atual ({parcelas}x)</span>
+                            <div className="flex-1 h-2 rounded-full bg-[#192234] overflow-hidden">
+                              <div className="h-full rounded-full bg-purple-500 transition-all duration-500" style={{ width: `${Math.min(100, newCommitPct)}%` }} />
+                            </div>
+                            <span className="text-[10px] font-bold font-mono text-purple-400 w-12 text-right">{newCommitPct.toFixed(1)}%</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-[#94a3b8] w-14 shrink-0">Suger. ({smartSuggestions.recommendedParcelas}x)</span>
+                            <div className="flex-1 h-2 rounded-full bg-[#192234] overflow-hidden">
+                              <div className="h-full rounded-full bg-[#00ff87] transition-all duration-500" style={{ width: `${Math.min(100, smartSuggestions.recommendedCommitPct)}%` }} />
+                            </div>
+                            <span className="text-[10px] font-bold font-mono text-[#00ff87] w-12 text-right">{smartSuggestions.recommendedCommitPct.toFixed(1)}%</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => applySuggestedParcelas(smartSuggestions.recommendedParcelas)}
+                          className="w-full py-2.5 px-3 rounded-xl bg-[#00ff87]/15 hover:bg-[#00ff87]/25 text-[#00ff87] border border-[#00ff87]/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+                        >
+                          <Check size={14} strokeWidth={2.5} />
+                          <span>Aplicar {smartSuggestions.recommendedParcelas}x na Simulação</span>
+                        </button>
+                      </div>
+
+                    </div>
                   </div>
                 </div>
               )}
