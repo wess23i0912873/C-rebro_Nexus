@@ -9,6 +9,7 @@ import PaymentReminders from './PaymentReminders';
 export default function PreenchimentoModule({ 
   transactions, 
   bankAccounts, 
+  categories = [],
   onAddTransaction, 
   onAddBatchTransactions, 
   onDeleteTransaction,
@@ -43,28 +44,28 @@ export default function PreenchimentoModule({
       
       {/* SUB-MENU SUPERIOR CENTRALIZADO (ESTILO PÍLULA NEON) */}
       <div className="flex justify-center w-full my-2">
-        <div className="inline-flex items-center gap-3 bg-[#080c14] p-2 rounded-2xl border border-[#192234] shadow-[0_0_25px_rgba(0,0,0,0.5)]">
+        <div className="inline-flex items-center gap-3 bg-[#080c14] p-2 rounded-2xl border border-[#192234] shadow-[0_0_25px_rgba(0,0,0,0.5)] max-w-full overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setFillMode('importar')}
-            className={`flex items-center gap-3 px-8 py-3.5 rounded-xl text-base font-bold transition-all duration-300 cursor-pointer ${
+            className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-8 py-3.5 rounded-xl text-sm sm:text-base font-bold transition-all duration-300 cursor-pointer whitespace-nowrap ${
               fillMode === 'importar'
                 ? 'bg-[#00ff87] text-black shadow-[0_0_25px_rgba(0,255,135,0.45)] scale-[1.02]'
                 : 'text-[#94a3b8] hover:text-white hover:bg-[#101625]'
             }`}
           >
-            <Download size={20} />
+            <Download size={18} />
             <span>Preenchimento por extrato</span>
           </button>
 
           <button
             onClick={() => setFillMode('manual')}
-            className={`flex items-center gap-3 px-8 py-3.5 rounded-xl text-base font-bold transition-all duration-300 cursor-pointer ${
+            className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-8 py-3.5 rounded-xl text-sm sm:text-base font-bold transition-all duration-300 cursor-pointer whitespace-nowrap ${
               fillMode === 'manual'
                 ? 'bg-[#00ff87] text-black shadow-[0_0_25px_rgba(0,255,135,0.45)] scale-[1.02]'
                 : 'text-[#94a3b8] hover:text-white hover:bg-[#101625]'
             }`}
           >
-            <Edit3 size={20} />
+            <Edit3 size={18} />
             <span>Preenchimento Manual</span>
           </button>
         </div>
@@ -103,7 +104,11 @@ export default function PreenchimentoModule({
 
           {/* 2. Formulário Lançador em LARGURA TOTAL 100% */}
           <div className="w-full">
-            <TransactionForm bankAccounts={bankAccounts} onSubmit={onAddTransaction} />
+            <TransactionForm 
+              bankAccounts={bankAccounts} 
+              categories={categories}
+              onSubmit={onAddTransaction} 
+            />
           </div>
 
           {/* 3. Seção Inferior em Layout de 2 Colunas (75% Extrato Geral do Mês | 25% Lembretes de Pagamento) */}
@@ -113,6 +118,7 @@ export default function PreenchimentoModule({
               <TransactionTable 
                 transactions={transactions} 
                 bankAccounts={bankAccounts} 
+                categories={categories}
                 onDelete={onDeleteTransaction}
                 onEdit={onEditTransaction}
                 onUpdateStatus={onUpdateStatus}

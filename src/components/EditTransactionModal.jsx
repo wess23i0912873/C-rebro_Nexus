@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import { X, Check, AlertCircle, Edit3 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 
-export default function EditTransactionModal({ transaction, bankAccounts = [], onSave, onClose }) {
+export default function EditTransactionModal({ 
+  transaction, 
+  bankAccounts = [], 
+  categories = [], 
+  onSave, 
+  onClose 
+}) {
   const [formData, setFormData] = useState({
     id: transaction.id,
     date: transaction.date || new Date().toISOString().split('T')[0],
@@ -19,13 +25,20 @@ export default function EditTransactionModal({ transaction, bankAccounts = [], o
   const [errorMsg, setErrorMsg] = useState('');
 
   // Categorias dinâmicas filtradas pelo Tipo (Saída vs Entrada)
-  const currentCategories = formData.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const currentCategories = formData.type === 'income'
+    ? (categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES)
+    : (categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
     if (name === 'type') {
-      const defaultCategory = value === 'income' ? INCOME_CATEGORIES[0].value : EXPENSE_CATEGORIES[0].value;
+      const incomeCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES;
+      const expenseCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES;
+      const defaultCategory = value === 'income' 
+        ? (incomeCats[0]?.value || incomeCats[0]?.name || 'Salário') 
+        : (expenseCats[0]?.value || expenseCats[0]?.name || 'Alimentação');
+      
       setFormData(prev => ({
         ...prev,
         type: value,
@@ -68,17 +81,17 @@ export default function EditTransactionModal({ transaction, bankAccounts = [], o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="relative w-full max-w-lg bg-[#0b0f19] border border-[#192234] rounded-3xl p-6 shadow-[0_0_50px_rgba(0,0,0,0.9),0_0_30px_rgba(0,255,135,0.15)] text-left space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-[#0b0f19] border border-[#192234] rounded-3xl p-5 sm:p-6 shadow-[0_0_50px_rgba(0,0,0,0.9),0_0_30px_rgba(0,255,135,0.15)] text-left space-y-5 my-auto max-h-[92vh] overflow-y-auto custom-scrollbar">
         
         {/* Cabeçalho do Modal */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#192234]">
+        <div className="flex items-center justify-between pb-4 border-b border-[#192234] shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[#00ff87]/10 border border-[#00ff87]/30 text-[#00ff87] flex items-center justify-center font-bold">
               <Edit3 size={20} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white tracking-tight">Editar Lançamento</h3>
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">Editar Lançamento</h3>
               <p className="text-xs text-[#94a3b8]">Modifique os dados do registro e salve para atualizar o extrato</p>
             </div>
           </div>
@@ -86,7 +99,7 @@ export default function EditTransactionModal({ transaction, bankAccounts = [], o
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-[#64748b] hover:text-white hover:bg-[#121927] transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-[#64748b] hover:text-white hover:bg-[#121927] transition-colors cursor-pointer shrink-0"
             title="Fechar Modal"
           >
             <X size={18} />
@@ -151,11 +164,15 @@ export default function EditTransactionModal({ transaction, bankAccounts = [], o
                 onChange={handleChange}
                 className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
               >
-                {currentCategories.map(c => (
-                  <option key={c.value} value={c.value} className="bg-[#0b0f19] text-white">
-                    {c.emoji} {c.label}
-                  </option>
-                ))}
+                {currentCategories.map(c => {
+                  const val = c.value || c.name;
+                  const label = c.label || c.name;
+                  return (
+                    <option key={c.id || val} value={val} className="bg-[#0b0f19] text-white">
+                      {c.emoji || '🏷️'} {label}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -172,7 +189,7 @@ export default function EditTransactionModal({ transaction, bankAccounts = [], o
               >
                 {bankAccounts.map(acc => (
                   <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                    🏛️ {acc.name}
+                    {acc.emoji || '🏦'} {acc.name}
                   </option>
                 ))}
               </select>

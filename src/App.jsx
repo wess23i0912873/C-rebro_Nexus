@@ -55,7 +55,7 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [bankAccounts, setBankAccounts] = useLocalStorage('nexus_bank_accounts', DEFAULT_ACCOUNTS);
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+  const [transactions, setTransactions] = useLocalStorage('nexus_transactions', MOCK_TRANSACTIONS);
   const [isUsingSupabase, setIsUsingSupabase] = useState(false);
 
   // ─── Central de Controle ─ Estado Global Persistido ─────────────────────────────────────
@@ -101,13 +101,29 @@ export default function App() {
 
   // Contas Bancárias
   const handleAddAccount = (acc) => setBankAccounts(prev => [...prev, acc]);
-  const handleEditAccount = (updated) => setBankAccounts(prev => prev.map(a => a.id === updated.id ? updated : a));
+  const handleEditAccount = (updated, oldAccount) => {
+    setBankAccounts(prev => prev.map(a => a.id === updated.id ? updated : a));
+    if (oldAccount && oldAccount.id !== updated.id) {
+      setTransactions(prev => prev.map(t => t.accountId === oldAccount.id ? { ...t, accountId: updated.id } : t));
+    }
+  };
   const handleDeleteAccount = (id) => setBankAccounts(prev => prev.filter(a => a.id !== id));
 
-  // Categorias
+  // Categorias (com propagação imediata para todo o extrato)
   const handleAddCategory = (cat) => setCategories(prev => [...prev, cat]);
-  const handleEditCategory = (updated) => setCategories(prev => prev.map(c => (c.id || c.value) === (updated.id || updated.value) ? updated : c));
-  const handleDeleteCategory = (idOrValue) => setCategories(prev => prev.filter(c => (c.id || c.value) !== idOrValue));
+  const handleEditCategory = (updated, oldCategory) => {
+    setCategories(prev => prev.map(c => ((c.id && c.id === updated.id) || c.value === (oldCategory?.value || updated.value)) ? updated : c));
+    
+    // Atualiza o nome da categoria em todas as transações correspondentes
+    const oldName = oldCategory?.name || oldCategory?.value;
+    const newName = updated.name || updated.value;
+    if (oldName && newName && oldName !== newName) {
+      setTransactions(prev => prev.map(t => (t.category === oldName || t.category === oldCategory?.value) ? { ...t, category: newName } : t));
+    }
+  };
+  const handleDeleteCategory = (idOrValue) => {
+    setCategories(prev => prev.filter(c => (c.id !== idOrValue && c.value !== idOrValue && c.name !== idOrValue)));
+  };
 
   // Itens Recorrentes
   const handleAddRecurring = (item) => setRecurringItems(prev => [...prev, item]);
@@ -469,14 +485,24 @@ export default function App() {
         <div className="flex-1 p-8 space-y-8">
           {activeTab === 'financas' && (
             <>
-              {/* ABA 1: DASHLINE (Painel Analítico Read-Only) */}
+              {/* ABA 1: DASHLINE (Painel Analítico) */}
               {activeSubTab === 'dashline' && (
-                <Dashline bankAccounts={bankAccounts} />
+                <Dashline 
+                  bankAccounts={bankAccounts}
+                  transactions={transactions}
+                  cards={cards}
+                  recurringItems={recurringItems}
+                  categories={categories}
+                />
               )}
 
               {/* ABA 2: CARTÕES (Gestão Integrada de Faturas) */}
               {activeSubTab === 'cartoes' && (
-                <CardsModule />
+                <CardsModule 
+                  cards={cards}
+                  bankAccounts={bankAccounts}
+                  transactions={transactions}
+                />
               )}
 
               {/* ABA 3: PREENCHIMENTO (Refatorado com Extrato Geral & Painel de Lembretes de Pagamento) */}

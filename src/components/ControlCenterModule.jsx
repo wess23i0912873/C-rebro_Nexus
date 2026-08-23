@@ -50,19 +50,19 @@ const inputCls = `w-full bg-[#0d1320] border border-[#192234] rounded-xl px-3 py
 
 const labelCls = 'block text-[11px] text-[#64748b] uppercase tracking-wider font-bold mb-1.5';
 
-// ─── Inline Modal ────────────────────────────────────────────────────────────
+// ─── Inline Modal Responsivo ──────────────────────────────────────────────────
 
 function Modal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#080c14] border border-[#192234] rounded-3xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#192234]">
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-[#121927] border border-[#192234] text-[#64748b] hover:text-white hover:border-red-500/40 transition-all cursor-pointer">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
+      <div className="bg-[#080c14] border border-[#192234] rounded-3xl w-full max-w-md shadow-2xl my-auto max-h-[92vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-[#192234] shrink-0">
+          <h3 className="text-sm font-bold text-white truncate pr-2">{title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg bg-[#121927] border border-[#192234] text-[#64748b] hover:text-white hover:border-red-500/40 transition-all cursor-pointer shrink-0">
             <X size={15} />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4">{children}</div>
+        <div className="px-5 sm:px-6 py-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">{children}</div>
       </div>
     </div>
   );
@@ -75,7 +75,7 @@ function DeleteConfirm({ label, onConfirm, onCancel }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="bg-[#080c14] border border-red-500/30 rounded-3xl w-full max-w-sm shadow-2xl p-6 space-y-4">
         <p className="text-sm text-white font-semibold text-center">Excluir <span className="text-red-400">"{label}"</span>?</p>
-        <p className="text-xs text-[#94a3b8] text-center">Esta ação não pode ser desfeita.</p>
+        <p className="text-xs text-[#94a3b8] text-center">Esta ação atualizará as referências no sistema.</p>
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 py-2 rounded-xl border border-[#192234] text-xs text-[#94a3b8] hover:bg-[#121927] transition-all cursor-pointer">Cancelar</button>
           <button onClick={onConfirm} className="flex-1 py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-xs text-red-300 font-bold hover:bg-red-500/30 transition-all cursor-pointer">Excluir</button>
@@ -89,13 +89,13 @@ function DeleteConfirm({ label, onConfirm, onCancel }) {
 
 function EmojiPicker({ emojis, selected, onSelect }) {
   return (
-    <div className="flex flex-wrap gap-2 p-3 bg-[#0d1320] border border-[#192234] rounded-xl">
+    <div className="flex flex-wrap gap-2 p-3 bg-[#0d1320] border border-[#192234] rounded-xl max-h-36 overflow-y-auto custom-scrollbar">
       {emojis.map(e => (
         <button
           key={e}
           type="button"
           onClick={() => onSelect(e)}
-          className={`text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+          className={`text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
             selected === e
               ? 'bg-amber-500/20 border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
               : 'hover:bg-[#192234]'
@@ -111,7 +111,7 @@ function EmojiPicker({ emojis, selected, onSelect }) {
 // ─── MODULE 1: Cartões ────────────────────────────────────────────────────────
 
 function CardsManager({ cards, onAdd, onEdit, onDelete }) {
-  const [modal, setModal] = useState(null); // null | 'add' | { ...card }
+  const [modal, setModal] = useState(null);
   const [form, setForm] = useState(EMPTY_CARD);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -144,7 +144,7 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
       accent: grad.accent,
     };
     if (modal === 'add') onAdd({ id: uid(), ...payload });
-    else onEdit({ ...modal, ...payload });
+    else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
 
@@ -192,7 +192,7 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-[#64748b]">Vencimento</span>
-                <span className="text-[10px] font-bold text-amber-300">Dia {card.dueDay}</span>
+                <span className="text-[10px] font-bold text-amber-300">Dia {card.dueDay || '10'}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 {card.owner === 'eu'
@@ -244,10 +244,10 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
           </div>
           <div>
             <label className={labelCls}>Cor / Identidade Visual</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {CARD_GRADIENTS.map(g => (
                 <button key={g.id} type="button" onClick={() => setForm(p => ({...p, gradient: g.id}))}
-                  className={`py-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-gradient-to-br ${g.value} ${g.border} ${form.gradient === g.id ? 'ring-2 ring-amber-500/60 scale-105' : 'opacity-70 hover:opacity-100'}`}>
+                  className={`py-2 px-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer bg-gradient-to-br ${g.value} ${g.border} ${form.gradient === g.id ? 'ring-2 ring-amber-500/60 scale-105' : 'opacity-70 hover:opacity-100'}`}>
                   {g.label}
                 </button>
               ))}
@@ -288,7 +288,7 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
     if (!form.name.trim()) return;
     const payload = { name: form.name.trim(), emoji: form.emoji };
     if (modal === 'add') onAdd({ id: uid(), type: 'corrente', balance: 0, ...payload });
-    else onEdit({ ...modal, ...payload });
+    else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
 
@@ -366,13 +366,13 @@ function CategoriesManager({ categories, onAdd, onEdit, onDelete }) {
   const incomes  = categories.filter(c => c.type === 'income');
 
   const openAdd = () => { setForm(EMPTY_CATEGORY); setModal('add'); };
-  const openEdit = (cat) => { setForm({ name: cat.name, type: cat.type, emoji: cat.emoji }); setModal(cat); };
+  const openEdit = (cat) => { setForm({ name: cat.name || cat.label, type: cat.type, emoji: cat.emoji }); setModal(cat); };
 
   const handleSave = () => {
     if (!form.name.trim()) return;
     const payload = { name: form.name.trim(), value: form.name.trim(), label: form.name.trim(), type: form.type, emoji: form.emoji };
     if (modal === 'add') onAdd({ id: uid(), ...payload });
-    else onEdit({ ...modal, ...payload });
+    else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
 
@@ -474,7 +474,7 @@ function RecurringManager({ items, onAdd, onEdit, onDelete }) {
     if (!form.name.trim() || !form.value) return;
     const payload = { name: form.name.trim(), type: form.type, emoji: form.emoji, value: parseFloat(form.value) || 0 };
     if (modal === 'add') onAdd({ id: uid(), ...payload });
-    else onEdit({ ...modal, ...payload });
+    else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
 
@@ -634,7 +634,7 @@ export default function ControlCenterModule({
             Gerencie cartões, contas, categorias e itens recorrentes — alterações são propagadas instantaneamente em todo o app
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold self-start sm:self-auto">
           <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
           Sincronizado • LocalStorage
         </div>
@@ -665,7 +665,7 @@ export default function ControlCenterModule({
       </div>
 
       {/* ── Active Module Panel ── */}
-      <div className={`p-6 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-5 shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
+      <div className={`p-4 sm:p-6 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-5 shadow-[0_0_30px_rgba(0,0,0,0.5)]`}>
         {/* Panel Header */}
         <div className={`flex items-center gap-3 pb-4 border-b border-[#192234]`}>
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${COLOR_MAP[mod.color].active}`}>

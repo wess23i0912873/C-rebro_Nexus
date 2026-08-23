@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -28,14 +28,6 @@ const MOCK_MONTHLY_PROFIT = [
   { month: 'Jun', entradas: 13000, saidas: 8600, lucro: 4400 },
   { month: 'Jul', entradas: 12200, saidas: 7800, lucro: 4400 },
   { month: 'Ago', entradas: 13500, saidas: 8250, lucro: 5250 }
-];
-
-const MOCK_RECENT_TRANSACTIONS = [
-  { id: '1', date: '02/08/2026', title: 'Empresa Tech SA', category: 'Salário', amount: 9500.00, type: 'income' },
-  { id: '2', date: '02/08/2026', title: 'Administradora Condomínio', category: 'Habitação', amount: 680.00, type: 'expense' },
-  { id: '3', date: '02/08/2026', title: 'Restaurante Coco Bambu', category: 'Lazer', amount: 220.00, type: 'expense' },
-  { id: '4', date: '01/08/2026', title: 'Supermercado Carrefour', category: 'Alimentação', amount: 450.80, type: 'expense' },
-  { id: '5', date: '30/07/2026', title: 'Projeto Freela UI/UX', category: 'Renda Extra', amount: 2500.00, type: 'income' }
 ];
 
 const MOCK_EXPENSE_RANKING = [
@@ -101,7 +93,13 @@ const MOCK_CARD_DATA = {
   }
 };
 
-export default function Dashline({ bankAccounts = [] }) {
+export default function Dashline({ 
+  bankAccounts = [], 
+  transactions = [], 
+  cards = [], 
+  recurringItems = [], 
+  categories = [] 
+}) {
   // Estados dos 3 cards do topo (padrão null = Mês Atual)
   const [saldoRange, setSaldoRange] = useState({ start: null, end: null });
   const [entradasRange, setEntradasRange] = useState({ start: null, end: null });
@@ -121,28 +119,88 @@ export default function Dashline({ bankAccounts = [] }) {
   const isGastosRankingFiltered = Boolean(rankingGastosRange.start && rankingGastosRange.end);
   const isRendasRankingFiltered = Boolean(rankingRendasRange.start && rankingRendasRange.end);
 
-  // Cálculos dinâmicos / Mock Reativo
-  const defaultBalance = bankAccounts.reduce((acc, curr) => acc + curr.balance, 18270.50);
-  const totalBalance = isSaldoFiltered ? 11450.00 : defaultBalance;
+  // Cálculos dinâmicos / Reatividade Total
+  const calcTotalBalance = bankAccounts.reduce((acc, curr) => acc + (parseFloat(curr.balance) || 0), 0);
+  const totalBalance = isSaldoFiltered ? 11450.00 : (calcTotalBalance || 18270.50);
   
-  const totalEntradas = isEntradasFiltered ? 6800.00 : 13500.00;
-  const totalSaidas = isSaidasFiltered ? 3250.00 : 8250.00;
+  const realEntradas = transactions.filter(t => t.type === 'income' || t.type === 'receita').reduce((sum, t) => sum + (parseFloat(t.value) || 0), 0);
+  const realSaidas = transactions.filter(t => t.type === 'expense' || t.type === 'despesa').reduce((sum, t) => sum + (parseFloat(t.value) || 0), 0);
 
-  const expenseRankingData = isGastosRankingFiltered ? MOCK_EXPENSE_RANKING_FILTERED : MOCK_EXPENSE_RANKING;
-  const incomeRankingData = isRendasRankingFiltered ? MOCK_INCOME_RANKING_FILTERED : MOCK_INCOME_RANKING;
+  const totalEntradas = isEntradasFiltered ? 6800.00 : (realEntradas || 13500.00);
+  const totalSaidas = isSaidasFiltered ? 3250.00 : (realSaidas || 8250.00);
+
+  // Rankings baseados em transações reais + categorias cadastradas
+  const dynamicExpenseRanking = useMemo(() => {
+    const expenseTxs = transactions.filter(t => (t.type === 'expense' || t.type === 'despesa') && parseFloat(t.value) > 0);
+    if (expenseTxs.length === 0) return MOCK_EXPENSE_RANKING;
+    const catMap = {};
+    let total = 0;
+    expenseTxs.forEach(t => {
+      const cat = t.category || 'Outros';
+      const val = parseFloat(t.value) || 0;
+      catMap[cat] = (catMap[cat] || 0) + val;
+      total += val;
+    });
+    const colors = ['#00ff87', '#10b981', '#059669', '#047857', '#064e3b', '#065f46'];
+    return Object.entries(catMap)
+      .map(([catName, amount], idx) => {
+        const catObj = categories.find(c => c.name === catName || c.value === catName);
+        const icon = catObj?.emoji || '🏷️';
+        const percentage = total > 0 ? parseFloat(((amount / total) * 100).toFixed(1)) : 0;
+        return {
+          icon,
+          category: catName,
+          amount,
+          percentage,
+          color: colors[idx % colors.length]
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, categories]);
+
+  const dynamicIncomeRanking = useMemo(() => {
+    const incomeTxs = transactions.filter(t => (t.type === 'income' || t.type === 'receita') && parseFloat(t.value) > 0);
+    if (incomeTxs.length === 0) return MOCK_INCOME_RANKING;
+    const catMap = {};
+    let total = 0;
+    incomeTxs.forEach(t => {
+      const cat = t.category || 'Salário';
+      const val = parseFloat(t.value) || 0;
+      catMap[cat] = (catMap[cat] || 0) + val;
+      total += val;
+    });
+    const colors = ['#00ff87', '#10b981', '#059669', '#047857', '#064e3b'];
+    return Object.entries(catMap)
+      .map(([catName, amount], idx) => {
+        const catObj = categories.find(c => c.name === catName || c.value === catName);
+        const icon = catObj?.emoji || '💼';
+        const percentage = total > 0 ? parseFloat(((amount / total) * 100).toFixed(1)) : 0;
+        return {
+          icon,
+          category: catName,
+          amount,
+          percentage,
+          color: colors[idx % colors.length]
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, categories]);
+
+  const expenseRankingData = isGastosRankingFiltered ? MOCK_EXPENSE_RANKING_FILTERED : dynamicExpenseRanking;
+  const incomeRankingData = isRendasRankingFiltered ? MOCK_INCOME_RANKING_FILTERED : dynamicIncomeRanking;
 
   const currentExpenseRankingTotal = expenseRankingData.reduce((acc, curr) => acc + curr.amount, 0);
   const currentIncomeRankingTotal = incomeRankingData.reduce((acc, curr) => acc + curr.amount, 0);
 
   const lucroMes = totalEntradas - totalSaidas;
-  const retencaoPercent = ((lucroMes / totalEntradas) * 100).toFixed(1);
-  const comprometidoPercent = ((totalSaidas / totalEntradas) * 100).toFixed(1);
+  const retencaoPercent = totalEntradas > 0 ? ((lucroMes / totalEntradas) * 100).toFixed(1) : '0.0';
+  const comprometidoPercent = totalEntradas > 0 ? ((totalSaidas / totalEntradas) * 100).toFixed(1) : '0.0';
 
   const currentCardData = MOCK_CARD_DATA[selectedCardMonth] || MOCK_CARD_DATA['Agosto/2026 (Atual)'];
 
   // Formatação BRL
   const formatBRL = (val) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   };
 
   return (

@@ -23,8 +23,8 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
   };
 
   return (
-    <div className="border-b border-[#192234] bg-[#080c14]/80 backdrop-blur-md px-8 py-3 flex items-center justify-between sticky top-20 z-10">
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="border-b border-[#192234] bg-[#080c14]/80 backdrop-blur-md px-4 sm:px-8 py-3 flex items-center justify-between sticky top-20 z-10 overflow-x-auto custom-scrollbar">
+      <div className="flex items-center gap-2 shrink-0">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSubTab === tab.id;
@@ -32,7 +32,7 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id)}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap ${
                 isActive
                   ? getActiveStyle(tab)
                   : 'text-[#94a3b8] hover:text-white hover:bg-[#101625] border border-transparent'
@@ -45,7 +45,7 @@ export default function FinancialNavTabs({ activeSubTab, setActiveSubTab }) {
         })}
       </div>
 
-      <div className="hidden md:flex items-center gap-2 text-[11px] text-[#475569] font-mono">
+      <div className="hidden lg:flex items-center gap-2 text-[11px] text-[#475569] font-mono shrink-0 pl-4">
         <span className="w-2 h-2 rounded-full bg-[#00ff87] animate-pulse"></span>
         <span>Visão Módulo Financeiro v2.0</span>
       </div>

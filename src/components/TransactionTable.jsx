@@ -20,11 +20,6 @@ const CATEGORY_EMOJIS = {
   'Transferência Interna': '🔄'
 };
 
-function getCategoryEmoji(catName) {
-  if (!catName) return '🏷️';
-  return CATEGORY_EMOJIS[catName] || '🏷️';
-}
-
 function getOriginBadge(tx) {
   if (tx.origin === 'extrato' || tx.product === 'Importação Extrato' || tx.id?.toString().includes('ofx') || tx.id?.toString().includes('csv') || tx.id?.toString().includes('imp')) {
     return { label: 'Extrato', emoji: '📥', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' };
@@ -48,15 +43,6 @@ export default function TransactionTable({
   const [filterType, setFilterType] = useState('all');
   const [editingTx, setEditingTx] = useState(null);
 
-  const getDynamicCategoryEmoji = (catName) => {
-    if (!catName) return '🏷️';
-    if (categories && categories.length > 0) {
-      const found = categories.find(c => c.name === catName || c.value === catName);
-      if (found) return found.emoji;
-    }
-    return getCategoryEmoji(catName);
-  };
-
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -72,9 +58,19 @@ export default function TransactionTable({
     return `${day}/${month}/${year}`;
   };
 
-  const getAccountName = (id) => {
+  const getAccountInfo = (id) => {
     const account = bankAccounts.find(a => a.id === id);
-    return account ? account.name : 'Outra';
+    if (!account) return { name: 'Outra', emoji: '🏛️' };
+    return { name: account.name, emoji: account.emoji || '🏛️' };
+  };
+
+  const getDynamicCategoryEmoji = (catName) => {
+    if (!catName) return '🏷️';
+    if (categories && categories.length > 0) {
+      const found = categories.find(c => c.name === catName || c.value === catName);
+      if (found && found.emoji) return found.emoji;
+    }
+    return CATEGORY_EMOJIS[catName] || '🏷️';
   };
 
   const filteredTransactions = transactions.filter(t => {
@@ -88,83 +84,103 @@ export default function TransactionTable({
       categoryName.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = 
-      filterType === 'all' || 
-      t.type === filterType ||
-      (filterType === 'pending' && t.status === 'pending');
-
+      filterType === 'all' ? true : 
+      filterType === 'income' ? (t.type === 'income' || t.type === 'receita') : 
+      (t.type === 'expense' || t.type === 'despesa');
+    
     return matchesSearch && matchesType;
   });
 
+  const handleSaveEditedTx = (updatedTx) => {
+    if (onEdit) {
+      onEdit(updatedTx);
+    }
+    setEditingTx(null);
+  };
+
   return (
-    <div className="rounded-3xl border border-[#192234] bg-[#0b0f19] shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden w-full relative">
+    <div className="glass-card rounded-3xl border border-[#192234] shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden w-full">
       
-      {/* Modal de Edição de Lançamento */}
+      {/* Modal de Edição */}
       {editingTx && (
         <EditTransactionModal
           transaction={editingTx}
           bankAccounts={bankAccounts}
+          categories={categories}
+          onSave={handleSaveEditedTx}
           onClose={() => setEditingTx(null)}
-          onSave={(updatedTx) => {
-            if (onEdit) onEdit(updatedTx);
-            setEditingTx(null);
-          }}
         />
       )}
 
-      {/* Controles de Cabeçalho do Extrato Geral do Mês */}
-      <div className="p-5 border-b border-[#192234] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0d1320]/60">
+      {/* Header da Tabela com Busca e Filtro */}
+      <div className="p-6 border-b border-[#192234] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h4 className="font-bold text-base text-white tracking-tight flex items-center gap-2">
-            <span>Extrato Geral do Mês</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#00ff87]/15 text-[#00ff87] font-mono border border-[#00ff87]/30">
-              {filteredTransactions.length} itens
-            </span>
-          </h4>
-          <p className="text-xs text-[#94a3b8]">Todos os lançamentos manuais, extratos e integrações do período</p>
+          <h3 className="font-extrabold text-lg text-white tracking-tight">Extrato Geral do Mês</h3>
+          <p className="text-xs text-[#94a3b8]">Histórico completo e consolidado de todas as movimentações</p>
         </div>
-        
-        <div className="flex gap-3 w-full sm:w-auto">
-          {/* Barra de Busca */}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Busca */}
           <div className="relative flex-1 sm:w-64">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-[#64748b]">
-              <Search size={14} />
-            </span>
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#64748b]" size={15} />
             <input 
-              type="text" 
-              placeholder="Buscar no extrato..." 
+              type="text"
+              placeholder="Buscar beneficiário, produto ou categoria..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#121927] border border-[#192234] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#00ff87] transition-colors"
+              className="w-full bg-[#121927] border border-[#192234] rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-[#64748b] focus:outline-none focus:border-[#00ff87] transition-all"
             />
           </div>
 
-          {/* Filtro de Tipo */}
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="bg-[#121927] border border-[#192234] rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-[#00ff87] transition-colors cursor-pointer"
-          >
-            <option value="all">Todos os Lançamentos</option>
-            <option value="expense">🔴 Apenas Saídas</option>
-            <option value="income">🟢 Apenas Entradas</option>
-            <option value="pending">⏳ Apenas Pendentes</option>
-          </select>
+          {/* Filtro por Tipo */}
+          <div className="flex rounded-xl bg-[#121927] p-1 border border-[#192234]">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterType === 'all' 
+                  ? 'bg-[#00ff87] text-black shadow-sm font-bold' 
+                  : 'text-[#94a3b8] hover:text-white'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setFilterType('expense')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterType === 'expense' 
+                  ? 'bg-red-500 text-white shadow-sm font-bold' 
+                  : 'text-[#94a3b8] hover:text-white'
+              }`}
+            >
+              Saídas
+            </button>
+            <button
+              onClick={() => setFilterType('income')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterType === 'income' 
+                  ? 'bg-emerald-500 text-black shadow-sm font-bold' 
+                  : 'text-[#94a3b8] hover:text-white'
+              }`}
+            >
+              Entradas
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tabela Responsiva do Extrato Geral */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-xs">
+      {/* Tabela de Lançamentos */}
+      <div className="overflow-x-auto custom-scrollbar">
+        <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-[#192234] bg-[#0d1320] text-[#64748b] font-semibold uppercase tracking-wider text-[10px]">
-              <th className="px-5 py-3.5">Data</th>
-              <th className="px-5 py-3.5">Origem</th>
-              <th className="px-5 py-3.5">Conta</th>
-              <th className="px-5 py-3.5">Categoria (Filtrada por Tipo)</th>
-              <th className="px-5 py-3.5">Beneficiário / Produto</th>
-              <th className="px-5 py-3.5">Valor</th>
-              <th className="px-5 py-3.5">Status</th>
-              <th className="px-5 py-3.5 text-center">Ações</th>
+            <tr className="border-b border-[#192234] bg-[#0c121e]/80 text-[#64748b] uppercase tracking-wider font-mono text-[10px]">
+              <th className="px-5 py-3.5 font-bold">Data</th>
+              <th className="px-5 py-3.5 font-bold">Origem</th>
+              <th className="px-5 py-3.5 font-bold">Conta</th>
+              <th className="px-5 py-3.5 font-bold">Categoria</th>
+              <th className="px-5 py-3.5 font-bold">Beneficiário / Detalhe</th>
+              <th className="px-5 py-3.5 font-bold">Valor</th>
+              <th className="px-5 py-3.5 font-bold">Status</th>
+              <th className="px-5 py-3.5 font-bold text-center">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#192234]">
@@ -178,10 +194,13 @@ export default function TransactionTable({
               filteredTransactions.map((t) => {
                 const isExpense = t.type === 'expense' || t.type === 'despesa';
                 const originBadge = getOriginBadge(t);
-                const emoji = getCategoryEmoji(t.category);
+                const emoji = getDynamicCategoryEmoji(t.category);
+                const accInfo = getAccountInfo(t.accountId);
 
                 // Filtrar opções de categoria compatíveis com a natureza da transação (Saída vs Entrada)
-                const categoryOptions = isExpense ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+                const categoryOptions = isExpense
+                  ? (categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES)
+                  : (categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES);
 
                 return (
                   <tr key={t.id} className="hover:bg-[#121927]/60 transition-colors duration-150">
@@ -201,7 +220,10 @@ export default function TransactionTable({
 
                     {/* 3. Conta */}
                     <td className="px-5 py-3.5 whitespace-nowrap text-white font-medium">
-                      {getAccountName(t.accountId)}
+                      <span className="inline-flex items-center gap-1.5">
+                        <span>{accInfo.emoji}</span>
+                        <span>{accInfo.name}</span>
+                      </span>
                     </td>
 
                     {/* 4. Categoria (Filtrada Dinamicamente pelo Tipo da Linha: Saída vs Entrada) */}
@@ -217,11 +239,15 @@ export default function TransactionTable({
                           }`}
                           title={`Clique para alterar a categoria (Filtrada para ${isExpense ? 'Despesas' : 'Receitas'})`}
                         >
-                          {categoryOptions.map(opt => (
-                            <option key={opt.value} value={opt.value} className="bg-[#0b0f19] text-white">
-                              {opt.emoji} {opt.label}
-                            </option>
-                          ))}
+                          {categoryOptions.map(opt => {
+                            const val = opt.value || opt.name;
+                            const label = opt.label || opt.name;
+                            return (
+                              <option key={opt.id || val} value={val} className="bg-[#0b0f19] text-white">
+                                {opt.emoji || '🏷️'} {label}
+                              </option>
+                            );
+                          })}
                         </select>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-[#121927] text-white border border-[#192234]">
@@ -303,4 +329,3 @@ export default function TransactionTable({
     </div>
   );
 }
-
