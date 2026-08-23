@@ -26,12 +26,8 @@ import CardVisual from './CardVisual';
 import BankIcon from './BankIcon';
 import { findBankPreset } from '../constants/assetOptions';
 
-// ─── Cartões Mock (sincronizado com CardsModule) ─────────────────────────────
-const DEFAULT_CARDS = [
-  { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', limitTotal: 15000, limitUsed: 3790.50 },
-  { id: 'card-2', name: 'Mercado Pago Black',  digits: '•••• 8120', limitTotal: 10000, limitUsed: 2670.00 },
-  { id: 'card-3', name: 'Itaú Personnalité',   digits: '•••• 3044', limitTotal: 20000, limitUsed: 1500.00 },
-];
+// ─── Defaults ──────────────────────────────────────────────────────────────
+const DEFAULT_CARDS = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (val) =>
@@ -243,7 +239,7 @@ function CommitmentBar({ label, value, total, color = '#00ff87' }) {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export default function SimulacaoModule({ transactions = [], bankAccounts = [], cards = [], recurringItems = [] }) {
-  const CARDS = (cards && cards.length > 0) ? cards : DEFAULT_CARDS;
+  const CARDS = cards || [];
   // ── Form State ──────────────────────────────────────────────────────────────
   const [valorBem, setValorBem] = useState('');
   const [parcelas, setParcelas] = useState(12);
@@ -252,78 +248,70 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
   const [simulado, setSimulado] = useState(false);
   const [suggestionOpen, setSuggestionOpen] = useState(false);
 
-  // ── Dados do App ────────────────────────────────────────────────────────────
+  // ── Dados do App Reais ───────────────────────────────────────────────────────
   const totalIncome = useMemo(() => {
-    if (recurringItems && recurringItems.length > 0) {
-      return recurringItems.filter(i => i.type === 'income').reduce((acc, i) => acc + (i.value || 0), 0) || 9500;
-    }
-    return transactions
+    const fromRecurring = (recurringItems || [])
+      .filter(i => i.type === 'income')
+      .reduce((acc, i) => acc + (parseFloat(i.value) || 0), 0);
+    const fromTransactions = (transactions || [])
       .filter(t => t.type === 'income' || t.type === 'receita')
-      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 9500; // Fallback garantido
+      .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0);
+    return Math.round((fromRecurring > 0 ? fromRecurring : fromTransactions) * 100) / 100;
   }, [transactions, recurringItems]);
 
   const fixedExpenses = useMemo(() => {
-    if (recurringItems && recurringItems.length > 0) {
-      return recurringItems.filter(i => i.type === 'expense').reduce((acc, i) => acc + (i.value || 0), 0) || 1396.70;
-    }
-    return transactions
+    const fromRecurring = (recurringItems || [])
+      .filter(i => i.type === 'expense')
+      .reduce((acc, i) => acc + (parseFloat(i.value) || 0), 0);
+    const fromTransactions = (transactions || [])
       .filter(t => t.type === 'expense' || t.type === 'despesa')
-      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 1396.70;
+      .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0);
+    return Math.round((fromRecurring > 0 ? fromRecurring : fromTransactions) * 100) / 100;
   }, [transactions, recurringItems]);
 
   const totalBalance = useMemo(() => {
-    return bankAccounts.reduce((acc, a) => acc + (a.balance || 0), 0) || 18270.50;
+    const sum = (bankAccounts || []).reduce((acc, a) => acc + (parseFloat(a.balance) || 0), 0);
+    return Math.round(sum * 100) / 100;
   }, [bankAccounts]);
 
   const currentCommitPct = totalIncome > 0 ? (fixedExpenses / totalIncome) * 100 : 0;
 
-  // Simulação de parcelas existentes com prazo, dia de vencimento e valor detalhado
-  const existingInstallments = useMemo(() => [
-    { 
-      id: 'inst-1', 
-      name: 'Nubank — Sofá em 12x', 
-      monthlyAmount: 153.37, 
-      monthsLeft: 5, 
-      dueDay: 15,
-      bank: 'Nubank',
-      category: 'Habitação' 
-    },
-    { 
-      id: 'inst-2', 
-      name: 'Mercado Pago — iPhone 15x', 
-      monthlyAmount: 333.33, 
-      monthsLeft: 9, 
-      dueDay: 20,
-      bank: 'Mercado Pago',
-      category: 'Tecnologia'
-    },
-    { 
-      id: 'inst-3', 
-      name: 'Itaú — TV 6x', 
-      monthlyAmount: 124.83, 
-      monthsLeft: 3, 
-      dueDay: 10,
-      bank: 'Itaú Personnalité',
-      category: 'Eletrônicos'
-    },
-  ], []);
+  // Parcelas existentes reais derivadas de transações ou faturas de cartões
+  const existingInstallments = useMemo(() => {
+    // Busca transações parceladas reais
+    const installmentTxs = (transactions || []).filter(t => t.installments && t.installments > 1);
+    if (installmentTxs.length > 0) {
+      return installmentTxs.map((t, idx) => ({
+        id: t.id || `inst-${idx}`,
+        name: `${t.payee || t.description || 'Compra'} (${t.currentInstallment || 1}/${t.installments}x)`,
+        monthlyAmount: parseFloat(t.installmentValue || t.value) || 0,
+        monthsLeft: Math.max(1, (t.installments - (t.currentInstallment || 1)) + 1),
+        dueDay: 10,
+        bank: t.bankName || 'Cartão',
+        category: t.category || 'Geral'
+      }));
+    }
+    return [];
+  }, [transactions]);
 
   const totalCurrentInstallments = existingInstallments.reduce((a, e) => a + e.monthlyAmount, 0);
 
   // ── Resultados ──────────────────────────────────────────────────────────────
-  const numericValor = parseFloat(valorBem) || 0;
+  const numericValor = Math.max(0, parseFloat(valorBem) || 0);
   const monthlyInstallment = parcelas > 0 ? numericValor / parcelas : 0;
 
-  const card = CARDS.find(c => c.id === selectedCard) || CARDS[0];
-  const limitAvailable = card.limitTotal - card.limitUsed;
+  const card = CARDS.find(c => c.id === selectedCard) || CARDS[0] || null;
+  const limitTotal = card ? (parseFloat(card.limitTotal) || 0) : 0;
+  const limitUsed = card ? (parseFloat(card.limitUsed) || 0) : 0;
+  const limitAvailable = Math.max(0, limitTotal - limitUsed);
   const limitAfterPurchase = limitAvailable - numericValor;
-  const limitCommitPct = pct(card.limitUsed + numericValor, card.limitTotal);
+  const limitCommitPct = limitTotal > 0 ? pct(limitUsed + numericValor, limitTotal) : 0;
 
   const newCommitPct = totalIncome > 0
     ? ((fixedExpenses + monthlyInstallment) / totalIncome) * 100
     : 0;
 
-  // Alívio mensal de faturas que encerram durante o período da simulação (soma das parcelas que deixam de ser pagas)
+  // Alívio mensal de faturas que encerram durante o período da simulação
   const monthlyReliefInPeriod = existingInstallments
     .filter(ei => ei.monthsLeft <= parcelas)
     .reduce((acc, ei) => acc + ei.monthlyAmount, 0);
@@ -357,28 +345,38 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
     });
 
     // 1. Melhor Marco de Data
-    const bestDateMilestone = milestones.find(m => m.futureCommitPct < 60) || milestones[milestones.length - 1] || milestones[0];
+    let defaultTerm = getTerminationDate(0, 10);
+    const bestDateMilestone = (milestones && milestones.length > 0)
+      ? (milestones.find(m => m.futureCommitPct < 60) || milestones[milestones.length - 1] || milestones[0])
+      : {
+          monthsToWait: 0,
+          targetDate: defaultTerm.formattedDate,
+          targetMonthYear: defaultTerm.monthYear,
+          freedMonthlyAmount: 0,
+          freedCount: 0,
+          futureCommitPct: newCommitPct,
+          installmentsRelieved: []
+        };
 
     // 2. Parcelamento Alternativo
     const optionsToTest = [6, 10, 12, 15, 18, 24].filter(p => p !== parcelas);
     const safeOption = optionsToTest.find(p => {
       const instVal = numericValor / p;
-      const cPct = ((fixedExpenses + instVal) / totalIncome) * 100;
+      const cPct = totalIncome > 0 ? ((fixedExpenses + instVal) / totalIncome) * 100 : 0;
       return cPct < 60;
     }) || (parcelas < 18 ? 18 : 24);
 
     const recommendedParcelas = safeOption;
     const recommendedInstallmentValue = numericValor / recommendedParcelas;
-    const recommendedCommitPct = ((fixedExpenses + recommendedInstallmentValue) / totalIncome) * 100;
+    const recommendedCommitPct = totalIncome > 0 ? ((fixedExpenses + recommendedInstallmentValue) / totalIncome) * 100 : 0;
     const faturasLivreInRecommended = existingInstallments.filter(ei => ei.monthsLeft <= recommendedParcelas).length;
 
     // 3. Comparativos visuais "Comprar Agora" vs "Comprar na Melhor Data"
     // --- Cenário A: Comprar AGORA ---
     const nowCommitPct = newCommitPct;
-    const nowPureFixed = fixedExpenses; // Saídas fixas puras do usuário (sem simulação)
+    const nowPureFixed = fixedExpenses;
     const nowMonthlyTotal = fixedExpenses + monthlyInstallment;
-    const nowSimulatedTotalPeriod = (fixedExpenses * parcelas) + numericValor; // Saídas acumuladas no período com a nova compra
-    // Alívio que ocorre DURANTE o período se comprar agora
+    const nowSimulatedTotalPeriod = (fixedExpenses * parcelas) + numericValor;
     const nowReliefInstallments = existingInstallments.filter(ei => ei.monthsLeft <= parcelas);
     const nowReliefMonthly = nowReliefInstallments.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
     const nowBestCommitAfterRelief = totalIncome > 0
@@ -386,13 +384,12 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
       : 0;
 
     // --- Cenário B: Comprar na DATA SUGERIDA ---
-    const laterPureFixed = Math.max(0, fixedExpenses - bestDateMilestone.freedMonthlyAmount); // Saídas fixas puras na data futura
-    const laterCommitPct = bestDateMilestone.futureCommitPct;
+    const laterPureFixed = Math.max(0, fixedExpenses - (bestDateMilestone.freedMonthlyAmount || 0));
+    const laterCommitPct = bestDateMilestone.futureCommitPct || 0;
     const laterMonthlyTotal = laterPureFixed + monthlyInstallment;
-    const laterSimulatedTotalPeriod = (laterPureFixed * parcelas) + numericValor; // Saídas acumuladas no período com a nova compra
-    // Alívios adicionais que ocorrem se esperar + comprar
+    const laterSimulatedTotalPeriod = (laterPureFixed * parcelas) + numericValor;
     const laterAdditionalRelief = existingInstallments
-      .filter(ei => ei.monthsLeft > bestDateMilestone.monthsToWait && ei.monthsLeft <= bestDateMilestone.monthsToWait + parcelas);
+      .filter(ei => ei.monthsLeft > (bestDateMilestone.monthsToWait || 0) && ei.monthsLeft <= (bestDateMilestone.monthsToWait || 0) + parcelas);
     const laterAdditionalReliefMonthly = laterAdditionalRelief.reduce((acc, ei) => acc + ei.monthlyAmount, 0);
     const laterBestCommitAfterRelief = totalIncome > 0
       ? ((laterPureFixed - laterAdditionalReliefMonthly + monthlyInstallment) / totalIncome) * 100

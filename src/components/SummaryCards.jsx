@@ -7,20 +7,28 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
   const formattedMonth = rawMonth.charAt(0).toUpperCase() + rawMonth.slice(1);
 
   // Calcular saldos somando as contas
-  const totalBalance = bankAccounts.reduce((acc, account) => acc + account.balance, 0);
+  const totalBalance = Math.round(
+    (bankAccounts || []).reduce((acc, account) => acc + (parseFloat(account.balance) || 0), 0) * 100
+  ) / 100;
   
   // Calcular entradas (receitas)
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => acc + parseFloat(t.value || 0), 0);
+  const totalIncome = Math.round(
+    (transactions || [])
+      .filter(t => t.type === 'income' || t.type === 'receita')
+      .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0) * 100
+  ) / 100;
 
   // Calcular saídas (despesas)
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + parseFloat(t.value || 0), 0);
+  const totalExpense = Math.round(
+    (transactions || [])
+      .filter(t => t.type === 'expense' || t.type === 'despesa')
+      .reduce((acc, t) => acc + (parseFloat(t.value) || 0), 0) * 100
+  ) / 100;
 
-  // Taxa de Economia
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+  // Taxa de Economia protegida contra divisão por zero
+  const savingsRate = totalIncome > 0 
+    ? Math.max(-100, Math.min(100, ((totalIncome - totalExpense) / totalIncome) * 100)) 
+    : 0;
 
   const cards = [
     {
@@ -69,7 +77,7 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL'
-    }).format(val);
+    }).format(val || 0);
   };
 
   return (
@@ -85,7 +93,7 @@ export default function SummaryCards({ transactions = [], bankAccounts = [] }) {
               <div>
                 <p className="text-xs font-bold text-[#64748b] uppercase tracking-wider">{card.title}</p>
                 <h3 className="text-2xl font-black font-mono mt-1.5 text-white">
-                  {card.isCurrency ? formatCurrency(card.value) : `${card.value.toFixed(1)}%`}
+                  {card.isCurrency ? formatCurrency(card.value) : `${(card.value || 0).toFixed(1)}%`}
                 </h3>
               </div>
               <div className={`p-2.5 rounded-xl bg-[#080b11]/80 ${card.iconColor} border border-[#192234]`}>

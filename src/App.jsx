@@ -10,17 +10,8 @@ import { supabase } from './lib/supabaseClient';
 import { useLocalStorage } from './lib/useLocalStorage';
 import { Bell } from 'lucide-react';
 
-const DEFAULT_ACCOUNTS = [
-  { id: 'acc-1', name: 'Nubank', icon: '/imagens/icones_de_banco/icone_banco-nubank.png', type: 'corrente', balance: 5420.50 },
-  { id: 'acc-2', name: 'Itaú Personnalité', icon: '/imagens/icones_de_banco/icone_banco-itau.png', type: 'investimentos', balance: 12500.00 },
-  { id: 'acc-3', name: 'Dinheiro Físico', icon: '/imagens/icones_de_banco/icone_banco-dinheiro.png', type: 'wallet', balance: 350.00 }
-];
-
-const DEFAULT_CARDS = [
-  { id: 'card-1', name: 'Nubank Ultravioleta', digits: '•••• 4892', owner: 'eu', limitTotal: 15000, limitUsed: 3790.50, dueDay: '10', image: '/imagens/cartoes/cartao-nubank-ultravioleta.png', colorGradient: 'from-purple-900/60 via-indigo-950/80 to-[#0b0f19]', borderColor: 'border-purple-500/30', accent: '#a855f7' },
-  { id: 'card-2', name: 'Mercado Pago Black', digits: '•••• 8120', owner: 'eu', limitTotal: 10000, limitUsed: 2670.00, dueDay: '20', image: '/imagens/cartoes/cartao-mercadopago.png', colorGradient: 'from-sky-900/60 via-blue-950/80 to-[#0b0f19]', borderColor: 'border-cyan-500/30', accent: '#06b6d4' },
-  { id: 'card-3', name: 'Itaú Personnalité Platinum', digits: '•••• 3044', owner: 'noiva', limitTotal: 20000, limitUsed: 1500.00, dueDay: '15', image: '/imagens/cartoes/cartao-itau-personnalite.png', colorGradient: 'from-amber-950/60 via-slate-900/80 to-[#0b0f19]', borderColor: 'border-amber-500/30', accent: '#f59e0b' },
-];
+const DEFAULT_ACCOUNTS = [];
+const DEFAULT_CARDS = [];
 
 const DEFAULT_CATEGORIES = [
   // Despesas
@@ -36,18 +27,8 @@ const DEFAULT_CATEGORIES = [
   { id: 'cat-9', name: 'Outros', value: 'Outros', label: 'Outras Receitas', type: 'income', emoji: '🟢' },
 ];
 
-const DEFAULT_RECURRING = [
-  { id: 'rec-1', name: 'Condomínio', type: 'expense', emoji: '🏠', value: 680 },
-  { id: 'rec-2', name: 'Salário Wesley', type: 'income', emoji: '💼', value: 9500 },
-];
-
-const MOCK_TRANSACTIONS = [
-  { id: 't-1', date: '2026-08-01', type: 'expense', category: 'Alimentação', accountId: 'acc-1', payee: 'Supermercado Carrefour', product: 'Compras do mês', value: 450.80, status: 'paid', origin: 'manual' },
-  { id: 't-2', date: '2026-08-02', type: 'expense', category: 'Lazer', accountId: 'acc-1', payee: 'Restaurante Coco Bambu', product: 'Jantar com a Noiva', value: 220.00, status: 'paid', origin: 'manual' },
-  { id: 't-3', date: '2026-08-02', type: 'income', category: 'Salário', accountId: 'acc-2', payee: 'Empresa Tech SA', product: 'Salário Wesley', value: 9500.00, status: 'paid', origin: 'manual' },
-  { id: 't-4', date: '2026-08-02', type: 'expense', category: 'Habitação', accountId: 'acc-2', payee: 'Administradora de Condomínio', product: 'Mensalidade condomínio', value: 680.00, status: 'pending', origin: 'manual' },
-  { id: 't-5', date: '2026-08-02', type: 'expense', category: 'Saúde', accountId: 'acc-3', payee: 'Farmácia Drogasil', product: 'Medicamentos', value: 45.90, status: 'paid', origin: 'manual' }
-];
+const DEFAULT_RECURRING = [];
+const MOCK_TRANSACTIONS = [];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('financas');
@@ -62,6 +43,34 @@ export default function App() {
   const [cards, setCards] = useLocalStorage('nexus_cards', DEFAULT_CARDS);
   const [categories, setCategories] = useLocalStorage('nexus_categories', DEFAULT_CATEGORIES);
   const [recurringItems, setRecurringItems] = useLocalStorage('nexus_recurring', DEFAULT_RECURRING);
+
+  // Limpeza de legado de mocks prévios se existirem no localStorage
+  useEffect(() => {
+    try {
+      const storedTxs = window.localStorage.getItem('nexus_transactions');
+      if (storedTxs && storedTxs.includes('"id":"t-1"')) {
+        window.localStorage.setItem('nexus_transactions', JSON.stringify([]));
+        setTransactions([]);
+      }
+      const storedAccs = window.localStorage.getItem('nexus_bank_accounts');
+      if (storedAccs && storedAccs.includes('"id":"acc-1"')) {
+        window.localStorage.setItem('nexus_bank_accounts', JSON.stringify([]));
+        setBankAccounts([]);
+      }
+      const storedCards = window.localStorage.getItem('nexus_cards');
+      if (storedCards && storedCards.includes('"id":"card-1"')) {
+        window.localStorage.setItem('nexus_cards', JSON.stringify([]));
+        setCards([]);
+      }
+      const storedRec = window.localStorage.getItem('nexus_recurring');
+      if (storedRec && storedRec.includes('"id":"rec-1"')) {
+        window.localStorage.setItem('nexus_recurring', JSON.stringify([]));
+        setRecurringItems([]);
+      }
+    } catch (e) {
+      console.warn('Erro ao verificar limpeza de mocks:', e);
+    }
+  }, []);
 
   // Carregar dados (Supabase com fallback para Mock)
   useEffect(() => {
