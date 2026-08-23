@@ -192,6 +192,26 @@ export default function Dashline({
   const currentExpenseRankingTotal = expenseRankingData.reduce((acc, curr) => acc + curr.amount, 0);
   const currentIncomeRankingTotal = incomeRankingData.reduce((acc, curr) => acc + curr.amount, 0);
 
+  const recentTransactions = useMemo(() => {
+    if (transactions && transactions.length > 0) {
+      return transactions.slice(0, 5).map((t, idx) => ({
+        id: t.id || `tx-${idx}`,
+        date: t.date ? t.date.split('-').reverse().join('/') : '',
+        title: t.payee || t.description || t.product || 'Lançamento',
+        category: t.category || 'Geral',
+        amount: parseFloat(t.value) || 0,
+        type: (t.type === 'income' || t.type === 'receita') ? 'income' : 'expense'
+      }));
+    }
+    return [
+      { id: '1', date: '02/08/2026', title: 'Empresa Tech SA', category: 'Salário', amount: 9500.00, type: 'income' },
+      { id: '2', date: '02/08/2026', title: 'Administradora Condomínio', category: 'Habitação', amount: 680.00, type: 'expense' },
+      { id: '3', date: '02/08/2026', title: 'Restaurante Coco Bambu', category: 'Lazer', amount: 220.00, type: 'expense' },
+      { id: '4', date: '01/08/2026', title: 'Supermercado Carrefour', category: 'Alimentação', amount: 450.80, type: 'expense' },
+      { id: '5', date: '30/07/2026', title: 'Projeto Freela UI/UX', category: 'Renda Extra', amount: 2500.00, type: 'income' }
+    ];
+  }, [transactions]);
+
   const lucroMes = totalEntradas - totalSaidas;
   const retencaoPercent = totalEntradas > 0 ? ((lucroMes / totalEntradas) * 100).toFixed(1) : '0.0';
   const comprometidoPercent = totalEntradas > 0 ? ((totalSaidas / totalEntradas) * 100).toFixed(1) : '0.0';
@@ -380,7 +400,7 @@ export default function Dashline({
             </div>
 
             <div className="space-y-3">
-              {MOCK_RECENT_TRANSACTIONS.map((tx) => (
+              {recentTransactions.map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-[#0e1422] border border-[#192234]/60 hover:border-[#192234] transition-colors">
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg ${tx.type === 'income' ? 'bg-[#00ff87]/10 text-[#00ff87]' : 'bg-red-500/10 text-red-400'}`}>
