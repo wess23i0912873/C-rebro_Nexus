@@ -313,10 +313,10 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
     ? ((fixedExpenses + monthlyInstallment) / totalIncome) * 100
     : 0;
 
-  // Alívio de faturas durante o período
-  const reliefInPeriod = existingInstallments
+  // Alívio mensal de faturas que encerram durante o período da simulação (soma das parcelas que deixam de ser pagas)
+  const monthlyReliefInPeriod = existingInstallments
     .filter(ei => ei.monthsLeft <= parcelas)
-    .reduce((acc, ei) => acc + ei.monthlyAmount * (parcelas - ei.monthsLeft), 0);
+    .reduce((acc, ei) => acc + ei.monthlyAmount, 0);
 
   // ─── Inteligência de Sugestão de Compra ──────────────────────────────────────
   const smartSuggestions = useMemo(() => {
@@ -1243,18 +1243,18 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                   )}
                 </div>
 
-                {reliefInPeriod > 0 && (
+                {monthlyReliefInPeriod > 0 && (
                   <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
                         <TrendingUp size={18} />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block">Alívio Financeiro Acumulado</span>
-                        <span className="text-[11px] text-emerald-400">Total economizado pelas parcelas que expiram durante o período</span>
+                        <span className="text-xs font-bold text-white block">Alívio Financeiro Mensal Conquistado</span>
+                        <span className="text-[11px] text-emerald-400/90">Valor livre por mês após o término das faturas deste período</span>
                       </div>
                     </div>
-                    <span className="text-base font-black font-mono text-emerald-300">{fmt(reliefInPeriod)}</span>
+                    <span className="text-base font-black font-mono text-emerald-300 shrink-0">{fmt(monthlyReliefInPeriod)}/mês</span>
                   </div>
                 )}
               </div>
