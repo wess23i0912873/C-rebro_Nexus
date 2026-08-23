@@ -42,10 +42,7 @@ const EMPTY_CARD = {
   image: PRESET_CARD_IMAGES[0].path 
 };
 
-const EMPTY_ACCOUNT = { 
-  name: '', 
-  icon: PRESET_BANK_ICONS[0].path 
-};
+const EMPTY_ACCOUNT = { name: '', icon: PRESET_BANK_ICONS[0].path, balance: '' };
 
 const EMPTY_CATEGORY = { name: '', type: 'expense', emoji: '🏷️' };
 const EMPTY_RECURRING = { name: '', type: 'expense', emoji: '🏷️', value: '' };
@@ -316,7 +313,8 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
   const openEdit = (acc) => { 
     setForm({ 
       name: acc.name, 
-      icon: acc.icon || acc.image || findBankPreset(acc.name)?.path || PRESET_BANK_ICONS[0].path 
+      icon: acc.icon || acc.image || findBankPreset(acc.name)?.path || PRESET_BANK_ICONS[0].path,
+      balance: acc.balance !== undefined ? String(acc.balance) : ''
     }); 
     setModal(acc); 
   };
@@ -324,11 +322,14 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
   const handleSave = () => {
     if (!form.name.trim()) return;
     const bankPreset = findBankPreset(form.icon || form.name);
+    const parsedBalance = parseFloat(form.balance) || 0;
     const payload = { 
       name: form.name.trim(), 
-      icon: form.icon || bankPreset.path 
+      icon: form.icon || bankPreset.path,
+      balance: parsedBalance,
+      initialBalance: parsedBalance
     };
-    if (modal === 'add') onAdd({ id: uid(), type: 'corrente', balance: 0, ...payload });
+    if (modal === 'add') onAdd({ id: uid(), type: 'corrente', ...payload });
     else onEdit({ ...modal, ...payload }, modal);
     setModal(null);
   };
@@ -373,6 +374,21 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
           <div>
             <label className={labelCls}>Nome do Banco / Carteira</label>
             <input className={inputCls} placeholder="Ex: Nubank, Itaú, Dinheiro Físico" value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))} />
+          </div>
+
+          <div>
+            <label className={labelCls}>Saldo Atual / Saldo Base (R$)</label>
+            <input 
+              type="number" 
+              step="0.01" 
+              className={inputCls} 
+              placeholder="0,00" 
+              value={form.balance} 
+              onChange={e => setForm(p => ({...p, balance: e.target.value}))} 
+            />
+            <p className="text-[10px] text-[#64748b] mt-1">
+              Este é o saldo de partida (Marco Zero) desta conta no Cérebro Nexus.
+            </p>
           </div>
 
           {/* SELEÇÃO VISUAL DO ÍCONE DO BANCO (PNG) */}

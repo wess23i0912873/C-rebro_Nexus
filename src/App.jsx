@@ -502,6 +502,8 @@ export default function App() {
                   cards={cards}
                   recurringItems={recurringItems}
                   categories={categories}
+                  onAddTransaction={handleAddTransaction}
+                  onEditAccount={handleEditAccount}
                 />
               )}
 

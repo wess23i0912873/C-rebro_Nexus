@@ -17,18 +17,24 @@ import {
   CreditCard, 
   Wallet,
   CheckCircle2,
-  Inbox
+  Inbox,
+  Scale
 } from 'lucide-react';
 import VisualDateRangePicker from './VisualDateRangePicker';
 import CardVisual from './CardVisual';
+import ReconciliationModal from './ReconciliationModal';
 
 export default function Dashline({ 
   bankAccounts = [], 
   transactions = [], 
   cards = [], 
   recurringItems = [], 
-  categories = [] 
+  categories = [],
+  onAddTransaction,
+  onEditAccount
 }) {
+  const [isReconcileOpen, setIsReconcileOpen] = useState(false);
+
   // Estados dos 3 cards do topo (padrão null = Mês Atual)
   const [saldoRange, setSaldoRange] = useState({ start: null, end: null });
   const [entradasRange, setEntradasRange] = useState({ start: null, end: null });
@@ -221,6 +227,24 @@ export default function Dashline({
   return (
     <div className="space-y-8 animate-fadeIn font-sans">
       
+      {/* HEADER DE INDICADORES & BOTÃO DE CONCILIAÇÃO BANCÁRIA */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
+        <div>
+          <h3 className="text-xl font-extrabold text-white tracking-tight">Visão Geral & Indicadores</h3>
+          <p className="text-xs text-[#94a3b8]">Métricas consolidadas do seu patrimônio e fluxo de caixa</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsReconcileOpen(true)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-[#00ff87]/15 border border-[#00ff87]/40 text-[#00ff87] font-bold text-xs hover:bg-[#00ff87]/25 hover:shadow-[0_0_20px_rgba(0,255,135,0.3)] transition-all cursor-pointer group"
+        >
+          <Scale size={16} className="group-hover:rotate-12 transition-transform" />
+          <span>Conciliar Saldos Bancários</span>
+          <span className="w-2 h-2 rounded-full bg-[#00ff87] animate-pulse ml-0.5" />
+        </button>
+      </div>
+
       {/* ==========================================
           LINHA 1 (TOPO ABSOLUTO): 3 CARDS PRINCIPAIS
          ========================================== */}
@@ -543,6 +567,15 @@ export default function Dashline({
           </div>
         )}
       </div>
+
+      {/* MODAL DE CONCILIAÇÃO BANCÁRIA */}
+      <ReconciliationModal
+        isOpen={isReconcileOpen}
+        onClose={() => setIsReconcileOpen(false)}
+        bankAccounts={bankAccounts}
+        onAddTransaction={onAddTransaction}
+        onEditAccount={onEditAccount}
+      />
 
     </div>
   );

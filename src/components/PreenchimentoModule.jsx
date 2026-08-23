@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Download, Edit3, CheckCircle2 } from 'lucide-react';
+import { Download, Edit3, CheckCircle2, Scale } from 'lucide-react';
 import ImportStatementFlow from './ImportStatementFlow';
 import SummaryCards from './SummaryCards';
 import TransactionForm from './TransactionForm';
 import TransactionTable from './TransactionTable';
 import PaymentReminders from './PaymentReminders';
+import ReconciliationModal from './ReconciliationModal';
 
 export default function PreenchimentoModule({ 
   transactions, 
@@ -21,6 +22,7 @@ export default function PreenchimentoModule({
   // Sub-aba interna do Preenchimento: 'importar' (Padrão) vs 'manual'
   const [fillMode, setFillMode] = useState('importar');
   const [importNotification, setImportNotification] = useState(null);
+  const [isReconcileOpen, setIsReconcileOpen] = useState(false);
 
   const handleImportSuccess = (newTransactions, bank) => {
     if (onAddBatchTransactions) {
@@ -43,7 +45,7 @@ export default function PreenchimentoModule({
     <div className="space-y-8">
       
       {/* SUB-MENU SUPERIOR CENTRALIZADO (ESTILO PÍLULA NEON) */}
-      <div className="flex justify-center w-full my-2">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 my-2">
         <div className="inline-flex items-center gap-3 bg-[#080c14] p-2 rounded-2xl border border-[#192234] shadow-[0_0_25px_rgba(0,0,0,0.5)] max-w-full overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setFillMode('importar')}
@@ -69,6 +71,17 @@ export default function PreenchimentoModule({
             <span>Preenchimento Manual</span>
           </button>
         </div>
+
+        {/* Botão de Conciliação Rápida */}
+        <button
+          type="button"
+          onClick={() => setIsReconcileOpen(true)}
+          className="flex items-center gap-2 px-4 py-3.5 rounded-2xl bg-[#00ff87]/15 border border-[#00ff87]/40 text-[#00ff87] font-bold text-xs hover:bg-[#00ff87]/25 hover:shadow-[0_0_20px_rgba(0,255,135,0.3)] transition-all cursor-pointer whitespace-nowrap group"
+        >
+          <Scale size={16} className="group-hover:rotate-12 transition-transform" />
+          <span>Conciliar Saldos</span>
+          <span className="w-2 h-2 rounded-full bg-[#00ff87] animate-pulse" />
+        </button>
       </div>
 
       {/* BANNER NOTIFICAÇÃO DE SUCESSO NA IMPORTAÇÃO */}
@@ -138,6 +151,14 @@ export default function PreenchimentoModule({
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONCILIAÇÃO BANCÁRIA */}
+      <ReconciliationModal
+        isOpen={isReconcileOpen}
+        onClose={() => setIsReconcileOpen(false)}
+        bankAccounts={bankAccounts}
+        onAddTransaction={onAddTransaction}
+      />
 
     </div>
   );
