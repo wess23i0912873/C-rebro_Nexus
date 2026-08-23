@@ -103,7 +103,7 @@ export default function PreenchimentoModule({
           <SummaryCards transactions={transactions} bankAccounts={bankAccounts} />
 
           {/* 2. Formulário Lançador em LARGURA TOTAL 100% */}
-          <div className="w-full">
+          <div className="w-full relative z-30">
             <TransactionForm 
               bankAccounts={bankAccounts} 
               categories={categories}
@@ -112,7 +112,7 @@ export default function PreenchimentoModule({
           </div>
 
           {/* 3. Seção Inferior em Layout de 2 Colunas (75% Extrato Geral do Mês | 25% Lembretes de Pagamento) */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full relative z-10">
             {/* Coluna Esquerda: Extrato Geral do Mês (75% da largura - 3 partes) */}
             <div className="lg:col-span-3 w-full">
               <TransactionTable 

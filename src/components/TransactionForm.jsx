@@ -185,7 +185,7 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
       {/* FORMULÁRIO BARRA INTEGRADA COMPACTA & ULTRA MODERNA */}
       <form 
         onSubmit={handleSubmit}
-        className="glass-card p-4 rounded-3xl border border-[#192234] shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-wrap lg:flex-nowrap items-end gap-3 w-full"
+        className="glass-card p-4 rounded-3xl border border-[#192234] shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-wrap lg:flex-nowrap items-end gap-3 w-full relative z-30"
       >
         {/* 1. DATA */}
         <div className="flex flex-col w-[130px] shrink-0">
@@ -247,11 +247,11 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
         </div>
 
         {/* 4. CONTA BANCÁRIA (BADGE CENTRADO COMPACTO) */}
-        <div className="flex flex-col w-[54px] shrink-0" ref={accountDropdownRef}>
+        <div className="flex flex-col w-[54px] shrink-0 relative z-40" ref={accountDropdownRef}>
           <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 text-center truncate">
             Conta
           </label>
-          <div className="relative">
+          <div className="relative z-50">
             <button
               type="button"
               onClick={() => setIsAccountOpen(!isAccountOpen)}
@@ -269,9 +269,9 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
               />
             </button>
 
-            {/* Menu Suspenso Flutuante (z-50) */}
+            {/* Menu Suspenso Flutuante (z-[100]) */}
             {isAccountOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.9)] p-1.5 space-y-1">
+              <div className="absolute top-full left-0 mt-1 z-[100] w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.95)] p-1.5 space-y-1">
                 {bankAccounts.map(acc => {
                   const isSelected = formData.accountId === acc.id;
                   return (
