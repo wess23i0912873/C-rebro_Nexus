@@ -116,7 +116,7 @@ export default function ReconciliationModal({
             bankAccounts.map((account) => {
               const nexusBalance = parseFloat(account.balance) || 0;
               const rawInput = realBalances[account.id];
-              const hasTyped = rawInput !== undefined && rawInput.trim() !== '';
+              const hasTyped = rawInput !== undefined && rawInput !== null && String(rawInput).trim() !== '';
               const realBalance = hasTyped ? (parseFloat(rawInput) || 0) : nexusBalance;
               const diff = Math.round((realBalance - nexusBalance) * 100) / 100;
               const isAdjusted = adjustedAccounts[account.id];
