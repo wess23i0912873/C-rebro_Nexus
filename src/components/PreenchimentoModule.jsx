@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Download, Edit3, CheckCircle2, Scale } from 'lucide-react';
+import { Download, Edit3, CheckCircle2, Scale, Landmark, CreditCard } from 'lucide-react';
 import ImportStatementFlow from './ImportStatementFlow';
 import SummaryCards from './SummaryCards';
 import TransactionForm from './TransactionForm';
 import TransactionTable from './TransactionTable';
+import CreditCardForm from './CreditCardForm';
+import CreditCardTransactionTable from './CreditCardTransactionTable';
 import PaymentReminders from './PaymentReminders';
 import ReconciliationModal from './ReconciliationModal';
 
 export default function PreenchimentoModule({ 
-  transactions, 
-  bankAccounts, 
+  transactions = [], 
+  bankAccounts = [], 
+  cards = [],
   categories = [],
   onAddTransaction, 
+  onAddCardPurchase,
   onAddBatchTransactions, 
   onDeleteTransaction,
+  onDeleteCardPurchase,
   onEditTransaction,
   onConfirmPayment,
   onUpdateStatus,
@@ -21,6 +26,7 @@ export default function PreenchimentoModule({
 }) {
   // Sub-aba interna do Preenchimento: 'importar' (Padrão) vs 'manual'
   const [fillMode, setFillMode] = useState('importar');
+  const [manualFormType, setManualFormType] = useState('bank'); // 'bank' | 'card'
   const [importNotification, setImportNotification] = useState(null);
   const [isReconcileOpen, setIsReconcileOpen] = useState(false);
 
@@ -111,22 +117,62 @@ export default function PreenchimentoModule({
       {fillMode === 'importar' ? (
         <ImportStatementFlow onImportSuccess={handleImportSuccess} />
       ) : (
-        <div className="space-y-6 animate-fade-in w-full">
+        <div className="space-y-8 animate-fade-in w-full">
+          
           {/* 1. Summary Cards no topo do modo manual */}
           <SummaryCards transactions={transactions} bankAccounts={bankAccounts} />
 
-          {/* 2. Formulário Lançador em LARGURA TOTAL 100% */}
-          <div className="w-full relative z-30">
-            <TransactionForm 
-              bankAccounts={bankAccounts} 
-              categories={categories}
-              onSubmit={onAddTransaction} 
-            />
+          {/* 2. SELETOR DE ABA DO FORMULÁRIO: CONTA BANCÁRIA VS CARTÃO DE CRÉDITO */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setManualFormType('bank')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  manualFormType === 'bank'
+                    ? 'bg-[#00ff87] text-black shadow-[0_0_15px_rgba(0,255,135,0.3)]'
+                    : 'bg-[#121927] text-[#94a3b8] hover:text-white border border-[#192234]'
+                }`}
+              >
+                <Landmark size={14} />
+                <span>🏛️ Lançamento Bancário (Conta / Débito / Pix)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setManualFormType('card')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  manualFormType === 'card'
+                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.35)]'
+                    : 'bg-[#121927] text-[#94a3b8] hover:text-white border border-[#192234]'
+                }`}
+              >
+                <CreditCard size={14} />
+                <span>💳 Lançamento no Cartão (Parcelamentos)</span>
+              </button>
+            </div>
+
+            {/* Renderização do Formulário Selecionado */}
+            <div className="w-full relative z-30">
+              {manualFormType === 'bank' ? (
+                <TransactionForm 
+                  bankAccounts={bankAccounts} 
+                  categories={categories}
+                  onSubmit={onAddTransaction} 
+                />
+              ) : (
+                <CreditCardForm 
+                  cards={cards}
+                  categories={categories}
+                  onSubmit={onAddCardPurchase}
+                />
+              )}
+            </div>
           </div>
 
-          {/* 3. Seção Inferior em Layout de 2 Colunas (75% Extrato Geral do Mês | 25% Lembretes de Pagamento) */}
+          {/* 3. QUADRO 1: EXTRATO GERAL DO MÊS (CONTAS BANCÁRIAS) + LEMBRETES */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start w-full relative z-10">
-            {/* Coluna Esquerda: Extrato Geral do Mês (75% da largura - 3 partes) */}
+            {/* Coluna Esquerda: Extrato Geral do Mês (75% da largura) */}
             <div className="lg:col-span-3 w-full">
               <TransactionTable 
                 transactions={transactions} 
@@ -139,7 +185,7 @@ export default function PreenchimentoModule({
               />
             </div>
 
-            {/* Coluna Direita: Lembretes de Pagamento (25% da largura - 1 parte) */}
+            {/* Coluna Direita: Lembretes de Pagamento (25% da largura) */}
             <div className="lg:col-span-1 w-full">
               <PaymentReminders 
                 transactions={transactions} 
@@ -149,6 +195,19 @@ export default function PreenchimentoModule({
               />
             </div>
           </div>
+
+          {/* 4. QUADRO 2: EXTRATO GERAL DO MÊS - CARTÕES DE CRÉDITO (Faturas & Parcelamentos) */}
+          <div className="w-full relative z-10">
+            <CreditCardTransactionTable 
+              transactions={transactions}
+              cards={cards}
+              categories={categories}
+              onDeleteInstallment={onDeleteTransaction}
+              onDeletePurchase={onDeleteCardPurchase}
+              onUpdateStatus={onUpdateStatus}
+            />
+          </div>
+
         </div>
       )}
 

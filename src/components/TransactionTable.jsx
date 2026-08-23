@@ -78,6 +78,11 @@ export default function TransactionTable({
   };
 
   const filteredTransactions = transactions.filter(t => {
+    // Excluir compras e parcelas de Cartão de Crédito (elas têm extrato exclusivo próprio)
+    if (t.cardId || t.paymentMethod === 'credit') {
+      return false;
+    }
+
     const payeeName = t.payee || t.description || '';
     const productName = t.product || '';
     const categoryName = t.category || '';

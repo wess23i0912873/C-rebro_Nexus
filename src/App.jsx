@@ -190,32 +190,44 @@ export default function App() {
     }
   };
 
-  const executeLocalAdd = (tx) => {
-    setTransactions(prev => [tx, ...prev]);
+  // Adicionar Compra Parcelada no Cartão de Crédito
+  const handleAddCardPurchase = ({ purchaseData, installments, card }) => {
+    if (!installments || installments.length === 0) return;
 
-    if (tx.status === 'paid') {
-      setBankAccounts(prevAccounts => {
-        return prevAccounts.map(account => {
-          if (tx.type === 'transfer') {
-            if (account.id === tx.accountId) {
-              return { ...account, balance: Math.round((account.balance - tx.value) * 100) / 100 };
-            }
-            if (account.id === tx.destinationAccountId) {
-              return { ...account, balance: Math.round((account.balance + tx.value) * 100) / 100 };
-            }
-            return account;
-          } else {
-            if (account.id === tx.accountId) {
-              const diff = tx.type === 'income' ? tx.value : -tx.value;
-              return {
-                ...account,
-                balance: Math.round((account.balance + diff) * 100) / 100
-              };
-            }
-            return account;
-          }
-        });
-      });
+    setTransactions(prev => [...installments, ...prev]);
+
+    // Atualiza o limite usado do cartão sem debitar a conta bancária
+    if (card && purchaseData.value) {
+      setCards(prevCards => prevCards.map(c => {
+        if (c.id === card.id) {
+          const currentUsed = parseFloat(c.limitUsed) || 0;
+          const newUsed = Math.round((currentUsed + purchaseData.value) * 100) / 100;
+          return { ...c, limitUsed: newUsed };
+        }
+        return c;
+      }));
+    }
+  };
+
+  // Excluir Compra Completa no Cartão (Todas as parcelas)
+  const handleDeleteCardPurchase = (purchaseId) => {
+    const txsToDelete = transactions.filter(t => t.purchaseId === purchaseId);
+    if (txsToDelete.length === 0) return;
+
+    const cardId = txsToDelete[0]?.cardId;
+    const totalPurchaseVal = txsToDelete.reduce((sum, t) => sum + (parseFloat(t.value) || 0), 0);
+
+    setTransactions(prev => prev.filter(t => t.purchaseId !== purchaseId));
+
+    if (cardId) {
+      setCards(prevCards => prevCards.map(c => {
+        if (c.id === cardId) {
+          const currentUsed = parseFloat(c.limitUsed) || 0;
+          const newUsed = Math.max(0, Math.round((currentUsed - totalPurchaseVal) * 100) / 100);
+          return { ...c, limitUsed: newUsed };
+        }
+        return c;
+      }));
     }
   };
 
@@ -487,6 +499,21 @@ export default function App() {
   const executeLocalDelete = (id, tx) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
     
+    // Se for transação de cartão de crédito, atualiza o limite do cartão sem tocar na conta corrente
+    if (tx.cardId || tx.paymentMethod === 'credit') {
+      if (tx.cardId) {
+        setCards(prevCards => prevCards.map(c => {
+          if (c.id === tx.cardId) {
+            const currentUsed = parseFloat(c.limitUsed) || 0;
+            const newUsed = Math.max(0, Math.round((currentUsed - (parseFloat(tx.value) || 0)) * 100) / 100);
+            return { ...c, limitUsed: newUsed };
+          }
+          return c;
+        }));
+      }
+      return;
+    }
+
     if (tx.status === 'paid') {
       setBankAccounts(prevAccounts => {
         return prevAccounts.map(account => {
@@ -605,15 +632,18 @@ export default function App() {
                 />
               )}
 
-              {/* ABA 3: PREENCHIMENTO (Refatorado com Extrato Geral & Painel de Lembretes de Pagamento) */}
+              {/* ABA 3: PREENCHIMENTO (Refatorado com Extrato Bancário & Extrato de Cartões) */}
               {activeSubTab === 'preenchimento' && (
                 <PreenchimentoModule
                   transactions={transactions}
                   bankAccounts={bankAccounts}
+                  cards={cards}
                   categories={categories}
                   onAddTransaction={handleAddTransaction}
+                  onAddCardPurchase={handleAddCardPurchase}
                   onAddBatchTransactions={handleAddBatchTransactions}
                   onDeleteTransaction={handleDeleteTransaction}
+                  onDeleteCardPurchase={handleDeleteCardPurchase}
                   onEditTransaction={handleEditTransaction}
                   onConfirmPayment={handleConfirmPayment}
                   onUpdateStatus={handleUpdateStatus}
