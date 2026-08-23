@@ -524,7 +524,7 @@ export function detectBankFromFile(content) {
     clean.includes('mercadolibre') || 
     clean.includes('mercado livre')
   ) {
-    return { id: 'mercadopago', name: 'Mercado Pago', logo: 'MP', color: '#009EE3' };
+    return { id: 'mercadopago', name: 'Mercado Pago', path: '/imagens/icones_de_banco/icone_banco-mercadopago.png', logo: 'MP', color: '#009EE3' };
   }
 
   // Nubank
@@ -534,7 +534,7 @@ export function detectBankFromFile(content) {
     clean.includes('nu financeira') || 
     clean.includes('<bankid>260')
   ) {
-    return { id: 'nubank', name: 'Nubank', logo: 'Nu', color: '#820AD1' };
+    return { id: 'nubank', name: 'Nubank', path: '/imagens/icones_de_banco/icone_banco-nubank.png', logo: 'Nu', color: '#820AD1' };
   }
 
   // Banco Inter
@@ -544,7 +544,17 @@ export function detectBankFromFile(content) {
     clean.includes('<bankid>077') || 
     clean.includes('<bankid>77')
   ) {
-    return { id: 'inter', name: 'Banco Inter', logo: 'Inter', color: '#FF7A00' };
+    return { id: 'inter', name: 'Banco Inter', path: '/imagens/icones_de_banco/icone_banco-inter.png', logo: 'Inter', color: '#FF7A00' };
+  }
+
+  // Itaú
+  if (
+    clean.includes('itau') || 
+    clean.includes('itaú') || 
+    clean.includes('unibanco') || 
+    clean.includes('<bankid>341')
+  ) {
+    return { id: 'itau', name: 'Itaú', path: '/imagens/icones_de_banco/icone_banco-itau.png', logo: 'Itaú', color: '#EC7000' };
   }
 
   // Caixa Econômica
@@ -554,7 +564,7 @@ export function detectBankFromFile(content) {
     clean.includes('cef') || 
     clean.includes('<bankid>104')
   ) {
-    return { id: 'caixa', name: 'Caixa Econômica', logo: 'Caixa', color: '#005CA9' };
+    return { id: 'caixa', name: 'Caixa Econômica', path: '/imagens/icones_de_banco/icone_banco-caixa.png', logo: 'Caixa', color: '#005CA9' };
   }
 
   // Banco do Brasil
@@ -563,7 +573,24 @@ export function detectBankFromFile(content) {
     clean.includes('<bankid>001') || 
     clean.includes('<bankid>1')
   ) {
-    return { id: 'bb', name: 'Banco do Brasil', logo: 'BB', color: '#0038A8' };
+    return { id: 'bb', name: 'Banco do Brasil', path: '/imagens/icones_de_banco/icone_banco-bb.png', logo: 'BB', color: '#0038A8' };
+  }
+
+  // PicPay
+  if (
+    clean.includes('picpay') || 
+    clean.includes('pic pay') || 
+    clean.includes('<bankid>380')
+  ) {
+    return { id: 'picpay', name: 'PicPay', path: '/imagens/icones_de_banco/icone_banco-picpay.png', logo: 'PicPay', color: '#11C76F' };
+  }
+
+  // Sicredi
+  if (
+    clean.includes('sicredi') || 
+    clean.includes('<bankid>748')
+  ) {
+    return { id: 'sicredi', name: 'Sicredi', path: '/imagens/icones_de_banco/icone_banco-sicredi.png', logo: 'Sicredi', color: '#006B3F' };
   }
 
   return null;

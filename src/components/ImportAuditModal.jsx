@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, CheckCircle2, AlertTriangle, Trash2, ArrowUpRight, ArrowDownRight, Calendar, Building2, FileText, Check, UserCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import BankIcon from './BankIcon';
 
 function detectOwnerName(description) {
   if (!description) return "Titular";
@@ -127,16 +128,7 @@ export default function ImportAuditModal({
         {/* Header do Modal */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[#192234] bg-[#0d1320]/60">
           <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg text-white shadow-inner"
-              style={{ backgroundColor: bank?.color || '#00ff87' }}
-            >
-              {bank?.logo ? (
-                <span className="text-sm font-black tracking-tighter">{bank.logo}</span>
-              ) : (
-                <Building2 size={20} className="text-white" />
-              )}
-            </div>
+            <BankIcon src={bank?.path} bankName={bank?.name} size="lg" />
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 Auditoria de Extrato Bancário

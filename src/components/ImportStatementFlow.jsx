@@ -3,15 +3,10 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud, CheckCircle2, Lock, AlertCircle, ArrowLeftRight } from 'lucide-react';
 import ImportAuditModal from './ImportAuditModal';
 import { processStatementFile } from '../lib/statementParser';
+import BankIcon from './BankIcon';
+import { PRESET_BANK_ICONS } from '../constants/assetOptions';
 
-const BANK_OPTIONS = [
-  { id: 'nubank', name: 'Nubank', logo: 'Nu', color: '#820AD1' },
-  { id: 'mercadopago', name: 'Mercado Pago', logo: 'MP', color: '#009EE3' },
-  { id: 'inter', name: 'Banco Inter', logo: 'Inter', color: '#FF7A00' },
-  { id: 'caixa', name: 'Caixa Econômica', logo: 'Caixa', color: '#005CA9' },
-  { id: 'bb', name: 'Banco do Brasil', logo: 'BB', color: '#0038A8' },
-  { id: 'outros', name: 'Outros Bancos', logo: 'Outros', color: '#192234' }
-];
+const BANK_OPTIONS = PRESET_BANK_ICONS;
 
 export default function ImportStatementFlow({ onImportSuccess }) {
   const [selectedBank, setSelectedBank] = useState(null);
@@ -111,14 +106,14 @@ export default function ImportStatementFlow({ onImportSuccess }) {
         </h3>
 
         {/* Grid de Bancos */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
           {BANK_OPTIONS.map((bank) => {
             const isSelected = selectedBank?.id === bank.id;
             return (
               <button
                 key={bank.id}
                 onClick={() => setSelectedBank(bank)}
-                className={`group relative p-5 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-3 cursor-pointer ${
+                className={`group relative p-4 rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center gap-2.5 cursor-pointer ${
                   isSelected
                     ? 'border-[#00ff87] bg-[#00ff87]/10 shadow-[0_0_25px_rgba(0,255,135,0.3)] scale-[1.03]'
                     : 'border-[#192234] bg-[#0b0f19] hover:bg-[#101625] hover:border-[#00ff87]/40'
@@ -131,15 +126,15 @@ export default function ImportStatementFlow({ onImportSuccess }) {
                   </span>
                 )}
 
-                {/* Logo / Ícone */}
-                <div 
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-white text-base shadow-md group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: bank.color }}
-                >
-                  {bank.logo}
-                </div>
+                {/* Logo / Ícone PNG Real */}
+                <BankIcon 
+                  src={bank.path} 
+                  bankName={bank.name} 
+                  size="xl" 
+                  className="w-14 h-14 rounded-2xl shadow-md group-hover:scale-110 transition-transform" 
+                />
 
-                <h4 className="text-sm font-bold text-white group-hover:text-[#00ff87] transition-colors">
+                <h4 className={`text-xs font-bold text-center truncate w-full transition-colors ${isSelected ? 'text-[#00ff87]' : 'text-white group-hover:text-[#00ff87]'}`}>
                   {bank.name}
                 </h4>
               </button>
