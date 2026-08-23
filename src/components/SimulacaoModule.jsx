@@ -11,11 +11,15 @@ import {
   CheckCircle2,
   Calendar,
   BarChart3,
-  ChevronRight,
   Zap,
   ShieldAlert,
   Wallet,
   RefreshCw,
+  Sparkles,
+  Lightbulb,
+  Clock,
+  Check,
+  Percent
 } from 'lucide-react';
 
 // ─── Cartões Mock (sincronizado com CardsModule) ─────────────────────────────
@@ -37,13 +41,30 @@ function getMonthLabel(offsetMonths) {
   return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
 }
 
+function getTerminationDate(monthsLeft, dueDay = 15) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + monthsLeft);
+  d.setDate(dueDay);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const monthName = d.toLocaleDateString('pt-BR', { month: 'long' });
+  return {
+    formattedDate: `${day}/${month}/${year}`,
+    monthYear: `${monthName.charAt(0).toUpperCase() + monthName.slice(1)}/${year}`,
+    monthName: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+    year,
+    rawDate: d
+  };
+}
+
 // ─── Alerta de Comprometimento ────────────────────────────────────────────────
 function CommitmentAlert({ commitPct }) {
   if (commitPct < 60) return null;
 
   if (commitPct >= 80) {
     return (
-      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-start gap-3">
+      <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/40 flex items-start gap-3 shadow-[0_0_20px_rgba(239,68,68,0.15)] animate-fade-in">
         <div className="w-9 h-9 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
           <XCircle size={20} />
         </div>
@@ -61,7 +82,7 @@ function CommitmentAlert({ commitPct }) {
 
   if (commitPct >= 70) {
     return (
-      <div className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-start gap-3">
+      <div className="p-4 rounded-2xl bg-orange-500/10 border border-orange-500/40 flex items-start gap-3 shadow-[0_0_20px_rgba(249,115,22,0.15)] animate-fade-in">
         <div className="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
           <AlertTriangle size={20} />
         </div>
@@ -78,7 +99,7 @@ function CommitmentAlert({ commitPct }) {
 
   // 60-70
   return (
-    <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/40 flex items-start gap-3">
+    <div className="p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/40 flex items-start gap-3 shadow-[0_0_20px_rgba(245,158,11,0.15)] animate-fade-in">
       <div className="w-9 h-9 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center shrink-0">
         <AlertCircle size={20} />
       </div>
@@ -116,18 +137,18 @@ function CommitmentTimeline({ parcelas, monthlyInstallment, fixedExpenses, total
         </div>
 
         {/* Linha base */}
-        <div className="relative h-2 bg-[#192234] rounded-full">
+        <div className="relative h-2.5 bg-[#192234] rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
               width: '100%',
               background: 'linear-gradient(90deg, #00ff87 0%, #f59e0b 60%, #ef4444 100%)',
-              opacity: 0.3
+              opacity: 0.25
             }}
           />
           {/* Barra de progresso real (comprometimento) */}
           <div
-            className="absolute top-0 left-0 h-full rounded-full"
+            className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
             style={{
               width: `${Math.min(100, pct(fixedExpenses + monthlyInstallment, totalIncome))}%`,
               background: (() => {
@@ -154,22 +175,23 @@ function CommitmentTimeline({ parcelas, monthlyInstallment, fixedExpenses, total
             return (
               <div key={m} className="flex flex-col items-center" style={{ width: `${100 / parcelas}%` }}>
                 <div
-                  className={`w-3 h-3 rounded-full border-2 mx-auto transition-all ${
+                  className={`w-3.5 h-3.5 rounded-full border-2 mx-auto transition-all ${
                     isLast
-                      ? 'bg-[#00ff87] border-[#00ff87] shadow-[0_0_8px_rgba(0,255,135,0.6)]'
+                      ? 'bg-[#00ff87] border-[#00ff87] shadow-[0_0_10px_rgba(0,255,135,0.7)] scale-110'
                       : isRelease
-                        ? 'bg-emerald-400 border-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
+                        ? 'bg-amber-400 border-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)] scale-110'
                         : 'bg-[#192234] border-[#2a3550]'
                   }`}
                 />
                 {isRelease && (
-                  <span className="text-[8px] text-emerald-400 font-bold mt-0.5 text-center leading-tight">
+                  <span className="text-[8px] text-amber-300 font-bold mt-1 text-center leading-tight bg-amber-500/10 px-1 py-0.5 rounded border border-amber-500/30">
                     +{fmt(releasedThisMonth).replace('R$\u00a0', '')}
-                    <br/>livre
                   </span>
                 )}
                 {isLast && !isRelease && (
-                  <span className="text-[8px] text-[#00ff87] font-bold mt-0.5 text-center">fim</span>
+                  <span className="text-[8px] text-[#00ff87] font-bold mt-1 text-center bg-[#00ff87]/10 px-1 py-0.5 rounded border border-[#00ff87]/30">
+                    Fim
+                  </span>
                 )}
               </div>
             );
@@ -178,18 +200,18 @@ function CommitmentTimeline({ parcelas, monthlyInstallment, fixedExpenses, total
       </div>
 
       {/* Legenda */}
-      <div className="flex flex-wrap gap-3 mt-2">
+      <div className="flex flex-wrap gap-4 mt-2 pt-2 border-t border-[#192234]/60">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
-          <span className="text-[10px] text-[#94a3b8]">Fatura anterior termina</span>
+          <div className="w-3 h-3 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]" />
+          <span className="text-[11px] text-[#94a3b8]">Fatura anterior termina (Alívio)</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-[#00ff87] shadow-[0_0_8px_rgba(0,255,135,0.6)]" />
-          <span className="text-[10px] text-[#94a3b8]">Fim da nova compra</span>
+          <div className="w-3 h-3 rounded-full bg-[#00ff87] shadow-[0_0_8px_rgba(0,255,135,0.7)]" />
+          <span className="text-[11px] text-[#94a3b8]">Término da nova compra</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#192234] border-2 border-[#2a3550]" />
-          <span className="text-[10px] text-[#94a3b8]">Mês normal</span>
+          <span className="text-[11px] text-[#94a3b8]">Mês em pagamento</span>
         </div>
       </div>
     </div>
@@ -228,26 +250,50 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
   const totalIncome = useMemo(() => {
     return transactions
       .filter(t => t.type === 'income' || t.type === 'receita')
-      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0);
+      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 9500; // Fallback garantido
   }, [transactions]);
 
   const fixedExpenses = useMemo(() => {
     return transactions
       .filter(t => t.type === 'expense' || t.type === 'despesa')
-      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0);
+      .reduce((acc, t) => acc + parseFloat(t.value || 0), 0) || 1396.70;
   }, [transactions]);
 
   const totalBalance = useMemo(() => {
-    return bankAccounts.reduce((acc, a) => acc + (a.balance || 0), 0);
+    return bankAccounts.reduce((acc, a) => acc + (a.balance || 0), 0) || 18270.50;
   }, [bankAccounts]);
 
   const currentCommitPct = totalIncome > 0 ? (fixedExpenses / totalIncome) * 100 : 0;
 
-  // Simulação de parcelas existentes com prazo e valor
+  // Simulação de parcelas existentes com prazo, dia de vencimento e valor detalhado
   const existingInstallments = useMemo(() => [
-    { name: 'Nubank — Sofá em 12x',      monthlyAmount: 153.37, monthsLeft: 5  },
-    { name: 'Mercado Pago — iPhone 15x', monthlyAmount: 333.33, monthsLeft: 9  },
-    { name: 'Itaú — TV 6x',              monthlyAmount: 124.83, monthsLeft: 3  },
+    { 
+      id: 'inst-1', 
+      name: 'Nubank — Sofá em 12x', 
+      monthlyAmount: 153.37, 
+      monthsLeft: 5, 
+      dueDay: 15,
+      bank: 'Nubank',
+      category: 'Habitação' 
+    },
+    { 
+      id: 'inst-2', 
+      name: 'Mercado Pago — iPhone 15x', 
+      monthlyAmount: 333.33, 
+      monthsLeft: 9, 
+      dueDay: 20,
+      bank: 'Mercado Pago',
+      category: 'Tecnologia'
+    },
+    { 
+      id: 'inst-3', 
+      name: 'Itaú — TV 6x', 
+      monthlyAmount: 124.83, 
+      monthsLeft: 3, 
+      dueDay: 10,
+      bank: 'Itaú Personnalité',
+      category: 'Eletrônicos'
+    },
   ], []);
 
   const totalCurrentInstallments = existingInstallments.reduce((a, e) => a + e.monthlyAmount, 0);
@@ -270,6 +316,67 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
     .filter(ei => ei.monthsLeft <= parcelas)
     .reduce((acc, ei) => acc + ei.monthlyAmount * (parcelas - ei.monthsLeft), 0);
 
+  // ─── Inteligência de Sugestão de Compra ──────────────────────────────────────
+  const smartSuggestions = useMemo(() => {
+    if (numericValor <= 0) return null;
+
+    // Ordenar parcelas existentes pelo prazo de término
+    const sortedByFinish = [...existingInstallments].sort((a, b) => a.monthsLeft - b.monthsLeft);
+
+    // Marcos de liberação financeira
+    let accumulatedFreed = 0;
+    const milestones = sortedByFinish.map((inst, index) => {
+      accumulatedFreed += inst.monthlyAmount;
+      const term = getTerminationDate(inst.monthsLeft, inst.dueDay);
+      const remainingExpensesAfter = Math.max(0, fixedExpenses - accumulatedFreed);
+      const futureCommitWithNewPurchase = totalIncome > 0
+        ? ((remainingExpensesAfter + monthlyInstallment) / totalIncome) * 100
+        : 0;
+
+      return {
+        monthsToWait: inst.monthsLeft,
+        targetDate: term.formattedDate,
+        targetMonthYear: term.monthYear,
+        freedMonthlyAmount: accumulatedFreed,
+        freedCount: index + 1,
+        futureCommitPct: futureCommitWithNewPurchase,
+        installmentsRelieved: sortedByFinish.slice(0, index + 1)
+      };
+    });
+
+    // 1. Melhor Marco de Data: Prioriza quando o comprometimento cai < 60% ou quando o alívio mensal cobre a maior parte da parcela
+    const bestDateMilestone = milestones.find(m => m.futureCommitPct < 60) || milestones[milestones.length - 1] || milestones[0];
+
+    // 2. Melhor Sugestão de Parcelamento Inteligente Alternativo:
+    // Analisa parcelas alternativas (ex: 18x ou 24x ou um valor que encaixe com folga no orçamento)
+    let recommendedParcelas = parcelas;
+    let recommendedInstallmentValue = monthlyInstallment;
+    let recommendedCommitPct = newCommitPct;
+
+    // Testa opções de 18x, 24x ou 10x dependendo da situação
+    const optionsToTest = [6, 10, 12, 15, 18, 24].filter(p => p !== parcelas);
+    const safeOption = optionsToTest.find(p => {
+      const instVal = numericValor / p;
+      const cPct = ((fixedExpenses + instVal) / totalIncome) * 100;
+      return cPct < 60;
+    }) || (parcelas < 18 ? 18 : 24);
+
+    recommendedParcelas = safeOption;
+    recommendedInstallmentValue = numericValor / recommendedParcelas;
+    recommendedCommitPct = ((fixedExpenses + recommendedInstallmentValue) / totalIncome) * 100;
+
+    // Quantas faturas acabam dentro do prazo do parcelamento sugerido
+    const faturasLivreInRecommended = existingInstallments.filter(ei => ei.monthsLeft <= recommendedParcelas).length;
+
+    return {
+      bestDateMilestone,
+      recommendedParcelas,
+      recommendedInstallmentValue,
+      recommendedCommitPct,
+      faturasLivreInRecommended
+    };
+  }, [numericValor, parcelas, monthlyInstallment, fixedExpenses, totalIncome, newCommitPct, existingInstallments]);
+
   const canSimulate = numericValor > 0 && parcelas > 0;
 
   const handleSimulate = () => {
@@ -284,28 +391,33 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
     setSelectedCard(MOCK_CARDS[0].id);
   };
 
+  const applySuggestedParcelas = (newP) => {
+    setParcelas(newP);
+    setSimulado(true);
+  };
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-8 animate-fade-in">
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h3 className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.2)]">
               <Calculator size={22} />
             </div>
-            Simulador de Compras
+            <span>Simulador de Compras & Planejamento</span>
           </h3>
-          <p className="text-sm text-[#94a3b8] ml-[52px]">
-            Descubra o impacto de uma nova compra no seu orçamento antes de decidir
+          <p className="text-xs sm:text-sm text-[#94a3b8] sm:ml-[52px]">
+            Cruze o impacto da nova aquisição com o término de faturas atuais e descubra a melhor estratégia
           </p>
         </div>
         {simulado && (
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#121927] border border-[#192234] text-xs font-bold text-[#94a3b8] hover:text-white hover:bg-[#182236] transition-all cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#121927] border border-[#192234] text-xs font-bold text-[#94a3b8] hover:text-white hover:bg-[#182236] transition-all cursor-pointer shadow-md self-start sm:self-auto"
           >
             <RefreshCw size={14} />
             Nova Simulação
@@ -315,14 +427,14 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 items-start">
 
-        {/* ── Formulário (2/5) ── */}
+        {/* ── Formulário Lateral (2/5) ── */}
         <div className="xl:col-span-2 space-y-5">
 
-          {/* Situação Atual */}
-          <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4">
+          {/* Situação Atual do Usuário */}
+          <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <BarChart3 size={16} className="text-[#00ff87]" />
-              Situação Financeira Atual
+              <span>Situação Financeira Atual</span>
             </h4>
 
             <div className="grid grid-cols-2 gap-3">
@@ -331,7 +443,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                 <p className="text-lg font-black font-mono text-[#00ff87]">{fmt(totalBalance)}</p>
               </div>
               <div className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] text-center">
-                <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold mb-1">Renda / Mês</p>
+                <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold mb-1">Renda Fixa / Mês</p>
                 <p className="text-lg font-black font-mono text-emerald-400">{fmt(totalIncome)}</p>
               </div>
               <div className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] text-center">
@@ -339,45 +451,58 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                 <p className="text-lg font-black font-mono text-rose-400">{fmt(fixedExpenses)}</p>
               </div>
               <div className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] text-center">
-                <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold mb-1">Compromet. Atual</p>
+                <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold mb-1">Comprometimento</p>
                 <p className={`text-lg font-black font-mono ${currentCommitPct >= 80 ? 'text-red-400' : currentCommitPct >= 70 ? 'text-orange-400' : currentCommitPct >= 60 ? 'text-yellow-400' : 'text-[#00ff87]'}`}>
                   {currentCommitPct.toFixed(1)}%
                 </p>
               </div>
             </div>
 
-            {/* Parcelas em andamento */}
-            <div>
-              <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold mb-2">Parcelas Ativas</p>
-              <div className="space-y-1.5">
-                {existingInstallments.map((ei, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-[#0d1320] border border-[#192234]">
-                    <div>
-                      <span className="text-white font-semibold truncate block max-w-[160px]">{ei.name}</span>
-                      <span className="text-[#64748b] text-[10px]">{ei.monthsLeft}x restantes</span>
-                    </div>
-                    <span className="font-bold font-mono text-amber-400 whitespace-nowrap">{fmt(ei.monthlyAmount)}/mês</span>
-                  </div>
-                ))}
+            {/* Parcelas em andamento com badges de destaque */}
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] text-[#64748b] uppercase tracking-wider font-semibold">Parcelas Ativas em Cartões</p>
+                <span className="text-[10px] text-amber-400 font-mono font-bold">{existingInstallments.length} ativas</span>
               </div>
-              <div className="flex justify-between items-center mt-2 px-1">
-                <span className="text-[10px] text-[#94a3b8]">Total em parcelas:</span>
-                <span className="text-xs font-bold font-mono text-amber-300">{fmt(totalCurrentInstallments)}/mês</span>
+
+              <div className="space-y-2">
+                {existingInstallments.map((ei) => {
+                  const term = getTerminationDate(ei.monthsLeft, ei.dueDay);
+                  return (
+                    <div key={ei.id} className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] flex flex-col space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white truncate max-w-[170px]">{ei.name}</span>
+                        <span className="font-bold font-mono text-xs text-amber-400">{fmt(ei.monthlyAmount)}/mês</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-[#94a3b8] pt-1 border-t border-[#192234]/60">
+                        <span className="flex items-center gap-1 font-mono text-amber-300/90 font-semibold">
+                          <Clock size={10} />
+                          Faltam {ei.monthsLeft} meses
+                        </span>
+                        <span className="font-mono text-[#64748b]">Término: {term.formattedDate}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between items-center mt-3 px-1">
+                <span className="text-[10px] text-[#94a3b8]">Total mensal em parcelas:</span>
+                <span className="text-xs font-black font-mono text-amber-300">{fmt(totalCurrentInstallments)}/mês</span>
               </div>
             </div>
           </div>
 
           {/* Formulário de Simulação */}
-          <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-5">
+          <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-5 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <Zap size={16} className="text-purple-400" />
-              Dados da Simulação
+              <span>Parâmetros da Nova Compra</span>
             </h4>
 
             {/* Valor do Bem */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
-                Valor Total do Bem (R$)
+                Valor Total do Bem / Compra (R$)
               </label>
               <div className="relative flex items-center">
                 <span className="absolute left-3 text-xs font-bold font-mono text-purple-400 pointer-events-none">R$</span>
@@ -396,9 +521,11 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
-                  Nº de Parcelas
+                  Nº de Parcelas Desejadas
                 </label>
-                <span className="text-sm font-black font-mono text-purple-400">{parcelas}x</span>
+                <span className="text-sm font-black font-mono text-purple-400 px-2 py-0.5 rounded-lg bg-purple-500/15 border border-purple-500/30">
+                  {parcelas}x
+                </span>
               </div>
               <input
                 type="range"
@@ -421,11 +548,14 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
               </div>
             </div>
 
-            {/* Valor da Parcela (calculado) */}
+            {/* Valor da Parcela Calculado */}
             {numericValor > 0 && (
-              <div className="px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 flex justify-between items-center">
-                <span className="text-xs text-purple-300 font-semibold">Parcela mensal:</span>
-                <span className="text-lg font-black font-mono text-purple-300">{fmt(monthlyInstallment)}</span>
+              <div className="px-4 py-3 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex justify-between items-center">
+                <div>
+                  <span className="text-[11px] text-purple-300 font-semibold block">Parcela Estimada:</span>
+                  <span className="text-[10px] text-[#94a3b8]">{parcelas}x mensais</span>
+                </div>
+                <span className="text-xl font-black font-mono text-purple-300">{fmt(monthlyInstallment)}</span>
               </div>
             )}
 
@@ -438,9 +568,9 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                 <button
                   type="button"
                   onClick={() => { setFormaPgto('cartao'); setSimulado(false); }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     formaPgto === 'cartao'
-                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
                       : 'bg-[#121927] border-[#192234] text-[#94a3b8] hover:border-[#2a3550]'
                   }`}
                 >
@@ -450,9 +580,9 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                 <button
                   type="button"
                   onClick={() => { setFormaPgto('boleto'); setSimulado(false); }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                     formaPgto === 'boleto'
-                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
+                      ? 'bg-blue-500/20 border-blue-500/50 text-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
                       : 'bg-[#121927] border-[#192234] text-[#94a3b8] hover:border-[#2a3550]'
                   }`}
                 >
@@ -466,7 +596,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
             {formaPgto === 'cartao' && (
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider block">
-                  Cartão Utilizado
+                  Cartão Utilizado (Afeta Limite)
                 </label>
                 <div className="space-y-2">
                   {MOCK_CARDS.map(c => {
@@ -480,7 +610,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                         onClick={() => { setSelectedCard(c.id); setSimulado(false); }}
                         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs border transition-all cursor-pointer ${
                           isSelected
-                            ? 'bg-purple-500/15 border-purple-500/50'
+                            ? 'bg-purple-500/15 border-purple-500/50 shadow-[0_0_10px_rgba(168,85,247,0.15)]'
                             : 'bg-[#121927] border-[#192234] hover:border-[#2a3550]'
                         }`}
                       >
@@ -509,54 +639,146 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
               type="button"
               onClick={handleSimulate}
               disabled={!canSimulate}
-              className={`w-full py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              className={`w-full py-3.5 rounded-2xl text-sm font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 canSimulate
-                  ? 'bg-purple-500 hover:bg-purple-400 text-white shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.6)]'
+                  ? 'bg-purple-500 hover:bg-purple-400 text-white shadow-[0_0_25px_rgba(168,85,247,0.4)] hover:shadow-[0_0_35px_rgba(168,85,247,0.6)] active:scale-[0.98]'
                   : 'bg-[#192234] text-[#475569] cursor-not-allowed'
               }`}
             >
               <Calculator size={18} />
-              {simulado ? 'Atualizar Simulação' : 'Simular Impacto'}
+              <span>{simulado ? 'Recalcular Simulação' : 'Simular Impacto Completo'}</span>
             </button>
           </div>
         </div>
 
-        {/* ── Resultados (3/5) ── */}
+        {/* ── Painel de Resultados & Insights (3/5) ── */}
         <div className="xl:col-span-3 space-y-5">
 
           {!simulado ? (
-            /* ── Estado vazio ── */
-            <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-10 rounded-3xl bg-[#0b0f19] border border-dashed border-[#192234] text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400/60 flex items-center justify-center mx-auto">
+            /* ── Estado Vazio Inicial ── */
+            <div className="h-full min-h-[440px] flex flex-col items-center justify-center p-10 rounded-3xl bg-[#0b0f19] border border-dashed border-[#192234] text-center space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+              <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400/60 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(168,85,247,0.1)]">
                 <Calculator size={32} />
               </div>
-              <div>
-                <h4 className="text-base font-bold text-[#64748b]">Aguardando dados da simulação</h4>
-                <p className="text-xs text-[#475569] mt-1">
-                  Preencha o formulário ao lado e clique em <strong className="text-[#94a3b8]">Simular Impacto</strong> para ver os resultados detalhados.
+              <div className="max-w-md">
+                <h4 className="text-base font-bold text-white">Aguardando dados para simular</h4>
+                <p className="text-xs text-[#94a3b8] mt-1.5 leading-relaxed">
+                  Informe o valor da compra e o parcelamento para cruzar os dados com seus ganhos fixos, faturas atuais e gerar a análise preditiva inteligente.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 w-full max-w-xs mt-4">
-                {['Impacto na Renda', 'Limite do Cartão', 'Comprometimento', 'Linha do Tempo'].map(f => (
-                  <div key={f} className="px-3 py-2 rounded-xl bg-[#0d1320] border border-[#192234] text-[10px] text-[#475569] font-semibold flex items-center gap-1.5">
-                    <ChevronRight size={11} className="text-purple-500/40" />
-                    {f}
+              <div className="grid grid-cols-2 gap-3 w-full max-w-sm mt-4">
+                {[
+                  'Sugestão Inteligente de Compra',
+                  'Destaque no Alívio de Faturas',
+                  'Linha do Tempo Visual',
+                  'Alertas de Comprometimento'
+                ].map(f => (
+                  <div key={f} className="px-3 py-2.5 rounded-xl bg-[#0d1320] border border-[#192234] text-[10px] text-[#94a3b8] font-semibold flex items-center gap-1.5 text-left">
+                    <Sparkles size={12} className="text-purple-400 shrink-0" />
+                    <span>{f}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            /* ── Resultados ── */
-            <div className="space-y-5">
+            /* ── Resultados Detalhados da Simulação ── */
+            <div className="space-y-6">
 
-              {/* Alerta de comprometimento (topo) */}
+              {/* 1. Alerta de Comprometimento de Renda */}
               <CommitmentAlert commitPct={newCommitPct} />
 
-              {/* Card: Impacto na Renda */}
-              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4">
+              {/* 2. NOVO BLOCO: SUGESTÃO INTELIGENTE DE COMPRA */}
+              {smartSuggestions && (
+                <div className="p-6 rounded-3xl bg-gradient-to-br from-purple-950/40 via-[#0b0f19] to-[#080c14] border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.18)] space-y-5 animate-fade-in relative overflow-hidden">
+                  
+                  {/* Background Glow */}
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                  {/* Header do Card Inteligente */}
+                  <div className="flex items-center justify-between pb-3 border-b border-purple-500/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 text-purple-300 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                        <Lightbulb size={22} className="animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
+                          <span>Sugestão Inteligente de Compra</span>
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono border border-purple-500/30 uppercase font-bold">
+                            IA Analítica
+                          </span>
+                        </h4>
+                        <p className="text-xs text-[#94a3b8]">Otimização de fluxo financeiro baseada nas faturas existentes</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recomendações em 2 Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* Recomendação 1: Melhor Data / Mês para Comprar */}
+                    <div className="p-4 rounded-2xl bg-[#0d1320]/80 border border-purple-500/30 flex flex-col justify-between space-y-3 shadow-md hover:border-purple-500/60 transition-all">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
+                          <Calendar size={15} className="text-purple-400" />
+                          <span>Melhor Momento para Comprar</span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed">
+                          Seria melhor realizar essa compra na data{' '}
+                          <strong className="text-[#00ff87] font-mono text-sm underline decoration-emerald-500/60 underline-offset-2">
+                            {smartSuggestions.bestDateMilestone.targetDate}
+                          </strong>{' '}
+                          ({smartSuggestions.bestDateMilestone.targetMonthYear}), pois você estará livre de{' '}
+                          <strong className="text-amber-300">{smartSuggestions.bestDateMilestone.freedCount} parcela(s)</strong> e terá{' '}
+                          <strong className="text-[#00ff87] font-mono">{fmt(smartSuggestions.bestDateMilestone.freedMonthlyAmount)}</strong> livres mensais para investir nessa aquisição.
+                        </p>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-purple-950/30 border border-purple-500/20 text-[11px] text-purple-200 flex items-center justify-between">
+                        <span>Comprometimento futuro cai para:</span>
+                        <span className="font-bold font-mono text-[#00ff87]">
+                          {smartSuggestions.bestDateMilestone.futureCommitPct.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Recomendação 2: Sugestão Alternativa de Parcelamento */}
+                    <div className="p-4 rounded-2xl bg-[#0d1320]/80 border border-[#00ff87]/30 flex flex-col justify-between space-y-3 shadow-md hover:border-[#00ff87]/60 transition-all">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs font-bold text-[#00ff87]">
+                          <Percent size={15} className="text-[#00ff87]" />
+                          <span>Parcelamento Inteligente Alternativo</span>
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed">
+                          Ou, você pode parcelar esse valor em{' '}
+                          <strong className="text-[#00ff87] font-mono text-sm underline decoration-emerald-500/60 underline-offset-2">
+                            {smartSuggestions.recommendedParcelas}x de {fmt(smartSuggestions.recommendedInstallmentValue)}
+                          </strong>
+                          , pois nesse período você estará livre de{' '}
+                          <strong className="text-amber-300">{smartSuggestions.faturasLivreInRecommended} faturas</strong> e sua renda será menos comprometida{' '}
+                          (caindo de <strong>{newCommitPct.toFixed(1)}%</strong> para{' '}
+                          <strong className="text-[#00ff87]">{smartSuggestions.recommendedCommitPct.toFixed(1)}%</strong>).
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => applySuggestedParcelas(smartSuggestions.recommendedParcelas)}
+                        className="w-full py-2 px-3 rounded-xl bg-[#00ff87]/15 hover:bg-[#00ff87]/25 text-[#00ff87] border border-[#00ff87]/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+                      >
+                        <Check size={14} strokeWidth={2.5} />
+                        <span>Aplicar {smartSuggestions.recommendedParcelas}x na Simulação</span>
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Impacto na Renda Mensal */}
+              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                 <h4 className="text-sm font-bold text-white flex items-center gap-2">
                   <TrendingDown size={16} className="text-rose-400" />
-                  Impacto na Renda Mensal
+                  <span>Impacto na Renda Mensal</span>
                 </h4>
 
                 <div className="grid grid-cols-3 gap-3">
@@ -565,42 +787,42 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                     <p className="text-base font-black font-mono text-rose-400 mt-1">{fmt(monthlyInstallment)}</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] text-center">
-                    <p className="text-[9px] text-[#64748b] uppercase tracking-wider font-semibold">Por</p>
+                    <p className="text-[9px] text-[#64748b] uppercase tracking-wider font-semibold">Prazo</p>
                     <p className="text-base font-black font-mono text-purple-400 mt-1">{parcelas} meses</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-[#0d1320] border border-[#192234] text-center">
-                    <p className="text-[9px] text-[#64748b] uppercase tracking-wider font-semibold">Total Pago</p>
+                    <p className="text-[9px] text-[#64748b] uppercase tracking-wider font-semibold">Total da Compra</p>
                     <p className="text-base font-black font-mono text-white mt-1">{fmt(numericValor)}</p>
                   </div>
                 </div>
 
                 <div className="space-y-3 pt-1">
                   <CommitmentBar
-                    label="Gastos fixos mensais"
+                    label="Gastos fixos mensais atuais"
                     value={fixedExpenses}
                     total={totalIncome}
                     color="#f43f5e"
                   />
                   <CommitmentBar
-                    label="Nova parcela"
+                    label="Nova parcela da simulação"
                     value={monthlyInstallment}
                     total={totalIncome}
                     color="#a855f7"
                   />
                   <div className="h-px bg-[#192234]" />
                   <CommitmentBar
-                    label="Total comprometido (após compra)"
+                    label="Comprometimento Total Resultante"
                     value={fixedExpenses + monthlyInstallment}
                     total={totalIncome}
                     color={newCommitPct >= 80 ? '#ef4444' : newCommitPct >= 70 ? '#f97316' : newCommitPct >= 60 ? '#f59e0b' : '#00ff87'}
                   />
                 </div>
 
-                {/* Renda livre */}
+                {/* Renda Livre Restante */}
                 <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-[#0d1320] border border-[#192234]">
                   <div className="flex items-center gap-2 text-xs text-[#94a3b8]">
                     <Wallet size={14} className="text-[#00ff87]" />
-                    Renda Livre Restante / Mês
+                    <span>Renda Livre Restante / Mês</span>
                   </div>
                   <span className={`text-sm font-black font-mono ${
                     (totalIncome - fixedExpenses - monthlyInstallment) < 0 ? 'text-red-400' : 'text-[#00ff87]'
@@ -610,12 +832,12 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                 </div>
               </div>
 
-              {/* Card: Impacto no Cartão (somente se cartão) */}
+              {/* 4. Impacto no Limite do Cartão (quando aplicável) */}
               {formaPgto === 'cartao' && (
-                <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4">
+                <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
                     <CreditCard size={16} className="text-purple-400" />
-                    Impacto no Cartão — {card.name}
+                    <span>Impacto no Limite — {card.name}</span>
                   </h4>
 
                   <div className="grid grid-cols-3 gap-3">
@@ -644,7 +866,7 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                     </div>
                   )}
 
-                  {/* Barra de limite */}
+                  {/* Barra de Limite Dupla */}
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-[10px] text-[#64748b]">
                       <span>Comprometimento do Limite</span>
@@ -660,88 +882,134 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                         style={{ width: `${Math.min(pct(numericValor, card.limitTotal), 100 - pct(card.limitUsed, card.limitTotal))}%` }}
                       />
                     </div>
-                    <div className="flex gap-3 text-[10px]">
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-[#94a3b8]">Já usado</span></div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-purple-500" /><span className="text-[#94a3b8]">Nova compra</span></div>
+                    <div className="flex gap-4 text-[10px]">
+                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-amber-500" /><span className="text-[#94a3b8]">Já comprometido</span></div>
+                      <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-purple-500" /><span className="text-[#94a3b8]">Nova aquisição</span></div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Card: Cronograma de Alívio de Faturas */}
-              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4">
-                <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                  <TrendingUp size={16} className="text-emerald-400" />
-                  Cronograma de Alívio de Faturas
-                </h4>
+              {/* 5. DESTAQUE NO CRONOGRAMA DE ALÍVIO DE FATURAS */}
+              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-amber-500/30 shadow-[0_0_30px_rgba(245,158,11,0.08)] space-y-4">
+                <div className="flex items-center justify-between pb-2 border-b border-[#192234]">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <TrendingUp size={16} className="text-amber-400" />
+                    <span>Cronograma de Alívio de Faturas (Términos em Destaque)</span>
+                  </h4>
+                  <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30">
+                    {parcelas} meses de simulação
+                  </span>
+                </div>
 
-                <p className="text-xs text-[#94a3b8]">
-                  Você gasta <strong className="text-amber-400">{fmt(totalCurrentInstallments)}</strong>/mês com parcelas ativas.
-                  Durante os <strong className="text-purple-400">{parcelas} meses</strong> da nova compra, as faturas abaixo irão terminar:
+                <p className="text-xs text-[#94a3b8] leading-relaxed">
+                  Você gasta <strong className="text-amber-400">{fmt(totalCurrentInstallments)}</strong>/mês com cartões. 
+                  Durante os <strong className="text-purple-300">{parcelas} meses</strong> da simulação, você terminará o pagamento das seguintes faturas:
                 </p>
 
-                <div className="space-y-2">
+                {/* Lista com Destaques Visuais Fortes nos Meses e Datas */}
+                <div className="space-y-3">
                   {existingInstallments
                     .filter(ei => ei.monthsLeft <= parcelas)
-                    .map((ei, i) => (
-                      <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
-                        <div>
-                          <p className="text-xs font-bold text-white">{ei.name}</p>
-                          <p className="text-[10px] text-emerald-400">
-                            Termina no mês {ei.monthsLeft} • Libera {fmt(ei.monthlyAmount)}/mês a partir daí
-                          </p>
+                    .map((ei) => {
+                      const term = getTerminationDate(ei.monthsLeft, ei.dueDay);
+                      return (
+                        <div 
+                          key={ei.id} 
+                          className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-[#0d1320] to-[#0b0f19] border border-amber-500/40 hover:border-amber-500/70 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-white">{ei.name}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#121927] text-[#94a3b8] border border-[#192234]">
+                                {ei.bank}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs text-amber-300 font-medium">
+                                Parcela atual: <strong className="font-mono">{fmt(ei.monthlyAmount)}/mês</strong>
+                              </span>
+                              <span className="text-[#64748b]">•</span>
+                              <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                                <CheckCircle2 size={13} />
+                                Libera {fmt(ei.monthlyAmount)}/mês após o término
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* CAIXA DE DESTAQUE DO MÊS E DATA DE TÉRMINO */}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 flex flex-col items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90">
+                                Término
+                              </span>
+                              <span className="text-sm font-black font-mono text-amber-200">
+                                MÊS {ei.monthsLeft}
+                              </span>
+                            </div>
+
+                            <div className="px-3 py-2 rounded-xl bg-[#121927] border border-[#192234] text-center">
+                              <span className="text-[9px] text-[#64748b] uppercase block">Data Prevista</span>
+                              <span className="text-xs font-bold font-mono text-white flex items-center gap-1 mt-0.5">
+                                <Calendar size={11} className="text-amber-400" />
+                                {term.formattedDate}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <CheckCircle2 size={16} className="text-emerald-400 ml-2" />
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   }
 
                   {existingInstallments.filter(ei => ei.monthsLeft <= parcelas).length === 0 && (
-                    <div className="px-4 py-3 rounded-xl bg-[#0d1320] border border-[#192234] text-xs text-[#64748b]">
-                      Nenhuma fatura existente termina dentro do período da nova compra.
+                    <div className="p-4 rounded-2xl bg-[#0d1320] border border-[#192234] text-xs text-[#64748b] text-center">
+                      Nenhuma fatura ativa termina dentro do prazo selecionado de {parcelas} meses.
                     </div>
                   )}
                 </div>
 
                 {reliefInPeriod > 0 && (
-                  <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                    <span className="text-xs text-emerald-300 font-semibold">
-                      💰 Economia acumulada dentro do período:
-                    </span>
-                    <span className="text-sm font-black font-mono text-emerald-400">{fmt(reliefInPeriod)}</span>
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                        <TrendingUp size={18} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">Alívio Financeiro Acumulado</span>
+                        <span className="text-[11px] text-emerald-400">Total economizado pelas parcelas que expiram durante o período</span>
+                      </div>
+                    </div>
+                    <span className="text-base font-black font-mono text-emerald-300">{fmt(reliefInPeriod)}</span>
                   </div>
                 )}
               </div>
 
-              {/* Card: Linha do Tempo Visual */}
-              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4">
+              {/* 6. Comprometimento Geral com Linha do Tempo */}
+              <div className="p-5 rounded-3xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
                 <h4 className="text-sm font-bold text-white flex items-center gap-2">
                   <Calendar size={16} className="text-purple-400" />
-                  Comprometimento com Linha do Tempo
+                  <span>Comprometimento Geral da Renda com Linha do Tempo</span>
                 </h4>
 
-                {parcelas <= 24 ? (
-                  <CommitmentTimeline
-                    parcelas={parcelas}
-                    monthlyInstallment={monthlyInstallment}
-                    fixedExpenses={fixedExpenses}
-                    totalIncome={totalIncome}
-                    existingInstallments={existingInstallments}
-                  />
-                ) : (
-                  <p className="text-xs text-[#64748b]">Linha do tempo disponível para até 24 parcelas.</p>
-                )}
+                <CommitmentTimeline
+                  parcelas={parcelas}
+                  monthlyInstallment={monthlyInstallment}
+                  fixedExpenses={fixedExpenses}
+                  totalIncome={totalIncome}
+                  existingInstallments={existingInstallments}
+                />
 
-                {/* Resumo final */}
-                <div className={`px-4 py-4 rounded-2xl border text-center space-y-1 ${
-                  newCommitPct >= 80 ? 'bg-red-500/10 border-red-500/30' :
-                  newCommitPct >= 70 ? 'bg-orange-500/10 border-orange-500/30' :
-                  newCommitPct >= 60 ? 'bg-yellow-500/10 border-yellow-500/30' :
-                  'bg-[#00ff87]/10 border-[#00ff87]/30'
+                {/* Resumo Final de Comprometimento */}
+                <div className={`p-5 rounded-2xl border text-center space-y-1.5 transition-all ${
+                  newCommitPct >= 80 ? 'bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]' :
+                  newCommitPct >= 70 ? 'bg-orange-500/10 border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.15)]' :
+                  newCommitPct >= 60 ? 'bg-yellow-500/10 border-yellow-500/30 shadow-[0_0_20px_rgba(245,158,11,0.15)]' :
+                  'bg-[#00ff87]/10 border-[#00ff87]/30 shadow-[0_0_20px_rgba(0,255,135,0.15)]'
                 }`}>
-                  <p className="text-xs text-[#94a3b8]">Comprometimento Total da Renda Após a Compra</p>
+                  <p className="text-xs text-[#94a3b8] uppercase tracking-wider font-semibold">
+                    Comprometimento Percentual Total da Renda (Após Aquisição)
+                  </p>
                   <p className={`text-4xl font-black font-mono ${
                     newCommitPct >= 80 ? 'text-red-400' :
                     newCommitPct >= 70 ? 'text-orange-400' :
@@ -750,11 +1018,11 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [] }
                   }`}>
                     {newCommitPct.toFixed(1)}%
                   </p>
-                  <p className="text-xs text-[#64748b]">
-                    {newCommitPct < 60 && '✅ Situação saudável — compra segura'}
-                    {newCommitPct >= 60 && newCommitPct < 70 && '⚡ Atenção — compra com cautela'}
-                    {newCommitPct >= 70 && newCommitPct < 80 && '⚠️ Risco moderado — avalie com cuidado'}
-                    {newCommitPct >= 80 && '🚨 Risco alto — evite esta compra agora'}
+                  <p className="text-xs text-[#94a3b8]">
+                    {newCommitPct < 60 && '✅ Excelente: Comprometimento saudável dentro da margem de segurança financeira.'}
+                    {newCommitPct >= 60 && newCommitPct < 70 && '⚡ Alerta Amarelo: Renda moderadamente comprometida. Avalie riscos imprevistos.'}
+                    {newCommitPct >= 70 && newCommitPct < 80 && '⚠️ Alerta Laranja: Risco elevado. Margem estreita para emergências.'}
+                    {newCommitPct >= 80 && '🚨 Alerta Vermelho: Risco crítico. Não recomendado realizar esta aquisição no momento.'}
                   </p>
                 </div>
               </div>
