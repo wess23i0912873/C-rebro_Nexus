@@ -12,6 +12,7 @@ export default function PreenchimentoModule({
   onAddTransaction, 
   onAddBatchTransactions, 
   onDeleteTransaction,
+  onEditTransaction,
   onUpdateStatus,
   onUpdateCategory
 }) {
@@ -112,6 +113,7 @@ export default function PreenchimentoModule({
                 transactions={transactions} 
                 bankAccounts={bankAccounts} 
                 onDelete={onDeleteTransaction}
+                onEdit={onEditTransaction}
                 onUpdateStatus={onUpdateStatus}
                 onUpdateCategory={onUpdateCategory}
               />

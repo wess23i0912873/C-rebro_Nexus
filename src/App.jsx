@@ -136,6 +136,59 @@ export default function App() {
     }));
   };
 
+  // Editar Lançamento Completo
+  const handleEditTransaction = async (updatedTx) => {
+    if (isUsingSupabase && !updatedTx.id.toString().startsWith('t-')) {
+      try {
+        const { error } = await supabase
+          .from('transactions')
+          .update({
+            date: updatedTx.date,
+            type: updatedTx.type,
+            category: updatedTx.category,
+            accountId: updatedTx.accountId,
+            payee: updatedTx.payee,
+            product: updatedTx.product,
+            value: updatedTx.value,
+            status: updatedTx.status
+          })
+          .eq('id', updatedTx.id);
+
+        if (error) throw error;
+
+        const { data: transs } = await supabase.from('transactions').select('*').order('date', { ascending: false });
+        const { data: accounts } = await supabase.from('bank_accounts').select('*');
+        if (transs) setTransactions(transs);
+        if (accounts) setBankAccounts(accounts);
+      } catch (err) {
+        console.error('Falha ao editar no Supabase, executando localmente:', err);
+        executeLocalEdit(updatedTx);
+      }
+    } else {
+      executeLocalEdit(updatedTx);
+    }
+  };
+
+  const executeLocalEdit = (updatedTx) => {
+    const oldTx = transactions.find(t => t.id === updatedTx.id);
+    setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+
+    if (oldTx) {
+      setBankAccounts(prevAccounts => {
+        let accounts = [...prevAccounts];
+        if (oldTx.status === 'paid') {
+          const oldDiff = oldTx.type === 'income' ? -oldTx.value : oldTx.value;
+          accounts = accounts.map(acc => acc.id === oldTx.accountId ? { ...acc, balance: acc.balance + oldDiff } : acc);
+        }
+        if (updatedTx.status === 'paid') {
+          const newDiff = updatedTx.type === 'income' ? updatedTx.value : -updatedTx.value;
+          accounts = accounts.map(acc => acc.id === updatedTx.accountId ? { ...acc, balance: acc.balance + newDiff } : acc);
+        }
+        return accounts;
+      });
+    }
+  };
+
   // Excluir Lançamento
   const handleDeleteTransaction = async (id) => {
     const txToDelete = transactions.find(t => t.id === id);
@@ -282,6 +335,7 @@ export default function App() {
                   onAddTransaction={handleAddTransaction}
                   onAddBatchTransactions={handleAddBatchTransactions}
                   onDeleteTransaction={handleDeleteTransaction}
+                  onEditTransaction={handleEditTransaction}
                   onUpdateStatus={handleUpdateStatus}
                   onUpdateCategory={handleUpdateCategory}
                 />

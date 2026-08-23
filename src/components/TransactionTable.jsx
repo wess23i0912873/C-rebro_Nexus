@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Trash2, Pencil, CheckCircle, AlertCircle } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
+import EditTransactionModal from './EditTransactionModal';
 
 const CATEGORY_EMOJIS = {
   'Alimentação': '🍔',
@@ -38,11 +39,13 @@ export default function TransactionTable({
   transactions = [], 
   bankAccounts = [], 
   onDelete, 
+  onEdit,
   onUpdateStatus, 
   onUpdateCategory 
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [editingTx, setEditingTx] = useState(null);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -83,8 +86,21 @@ export default function TransactionTable({
   });
 
   return (
-    <div className="rounded-3xl border border-[#192234] bg-[#0b0f19] shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden w-full">
+    <div className="rounded-3xl border border-[#192234] bg-[#0b0f19] shadow-[0_0_30px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden w-full relative">
       
+      {/* Modal de Edição de Lançamento */}
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          bankAccounts={bankAccounts}
+          onClose={() => setEditingTx(null)}
+          onSave={(updatedTx) => {
+            if (onEdit) onEdit(updatedTx);
+            setEditingTx(null);
+          }}
+        />
+      )}
+
       {/* Controles de Cabeçalho do Extrato Geral do Mês */}
       <div className="p-5 border-b border-[#192234] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#0d1320]/60">
         <div>
@@ -245,16 +261,26 @@ export default function TransactionTable({
                       )}
                     </td>
 
-                    {/* 8. Ações */}
+                    {/* 8. Ações (Editar & Excluir) */}
                     <td className="px-5 py-3.5 whitespace-nowrap text-center">
-                      <button 
-                        type="button"
-                        onClick={() => onDelete(t.id)}
-                        className="p-1.5 rounded-lg text-[#64748b] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
-                        title="Excluir Lançamento"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button 
+                          type="button"
+                          onClick={() => setEditingTx(t)}
+                          className="p-1.5 rounded-lg text-[#64748b] hover:text-[#00ff87] hover:bg-[#00ff87]/10 transition-colors cursor-pointer"
+                          title="Editar Lançamento"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => onDelete(t.id)}
+                          className="p-1.5 rounded-lg text-[#64748b] hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title="Excluir Lançamento"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </td>
 
                   </tr>
@@ -267,3 +293,4 @@ export default function TransactionTable({
     </div>
   );
 }
+
