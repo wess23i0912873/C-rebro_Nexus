@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import CardVisual from './CardVisual';
 import BankIcon from './BankIcon';
+import CurrencyInput from './CurrencyInput';
 import { findBankPreset } from '../constants/assetOptions';
 
 // ─── Defaults ──────────────────────────────────────────────────────────────
@@ -553,17 +554,12 @@ export default function SimulacaoModule({ transactions = [], bankAccounts = [], 
               <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
                 Valor Total do Bem / Compra (R$)
               </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-xs font-bold font-mono text-purple-400 pointer-events-none">R$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={valorBem}
-                  onChange={e => { setValorBem(e.target.value); setSimulado(false); }}
-                  placeholder="Ex: 3500.00"
-                  className="w-full h-11 bg-[#121927] border border-[#192234] rounded-xl pl-9 pr-3 text-sm font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-purple-500/60 transition-all"
-                />
-              </div>
+              <CurrencyInput
+                value={valorBem}
+                onChange={e => { setValorBem(e.target.value); setSimulado(false); }}
+                placeholder="0,00"
+                className="w-full h-11 bg-[#121927] border border-[#192234] rounded-xl text-sm font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-purple-500/60 transition-all"
+              />
             </div>
 
             {/* Número de Parcelas */}

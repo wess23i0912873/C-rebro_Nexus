@@ -19,6 +19,7 @@ import {
 import BankIcon from './BankIcon';
 import CardVisual from './CardVisual';
 import SmartEmojiPicker from './SmartEmojiPicker';
+import CurrencyInput from './CurrencyInput';
 import { 
   PRESET_BANK_ICONS, 
   PRESET_CARD_IMAGES, 
@@ -255,7 +256,7 @@ function CardsManager({ cards, onAdd, onEdit, onDelete }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Limite Total (R$)</label>
-              <input type="number" className={inputCls} placeholder="15000" value={form.limitTotal} onChange={e => setForm(p => ({...p, limitTotal: e.target.value}))} />
+              <CurrencyInput className={inputCls} placeholder="0,00" value={form.limitTotal} onChange={e => setForm(p => ({...p, limitTotal: e.target.value}))} />
             </div>
             <div>
               <label className={labelCls}>Dia Vencimento</label>
@@ -378,9 +379,7 @@ function AccountsManager({ accounts, onAdd, onEdit, onDelete }) {
 
           <div>
             <label className={labelCls}>Saldo Atual / Saldo Base (R$)</label>
-            <input 
-              type="number" 
-              step="0.01" 
+            <CurrencyInput 
               className={inputCls} 
               placeholder="0,00" 
               value={form.balance} 
@@ -641,7 +640,7 @@ function RecurringManager({ items, onAdd, onEdit, onDelete }) {
           </div>
           <div>
             <label className={labelCls}>Valor Mensal (R$)</label>
-            <input type="number" className={inputCls} placeholder="0,00" step="0.01" value={form.value} onChange={e => setForm(p => ({...p, value: e.target.value}))} />
+            <CurrencyInput className={inputCls} placeholder="0,00" value={form.value} onChange={e => setForm(p => ({...p, value: e.target.value}))} />
           </div>
           <div>
             <label className={labelCls}>Tipo</label>

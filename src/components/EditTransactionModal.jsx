@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Check, AlertCircle, Edit3 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
+import CurrencyInput from './CurrencyInput';
 
 export default function EditTransactionModal({ 
   transaction, 
@@ -230,20 +231,13 @@ export default function EditTransactionModal({
               <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
                 Valor (R$)
               </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-xs font-bold font-mono text-[#00ff87] pointer-events-none">
-                  R$
-                </span>
-                <input
-                  type="number"
-                  name="value"
-                  step="0.01"
-                  value={formData.value}
-                  onChange={handleChange}
-                  placeholder="0.00"
-                  className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl pl-9 pr-3 text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-[#00ff87] transition-all"
-                />
-              </div>
+              <CurrencyInput
+                name="value"
+                value={formData.value}
+                onChange={handleChange}
+                placeholder="0,00"
+                className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-[#00ff87] transition-all"
+              />
             </div>
 
             {/* 8. STATUS */}

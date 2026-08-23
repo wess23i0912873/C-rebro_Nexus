@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, CheckCircle2, AlertCircle, Calendar, DollarSign, Landmark } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 export default function ConfirmPaymentModal({ transaction, bankAccounts = [], onConfirm, onClose }) {
   const today = new Date().toISOString().split('T')[0];
@@ -136,22 +137,15 @@ export default function ConfirmPaymentModal({ transaction, bankAccounts = [], on
                 Usar valor total
               </button>
             </div>
-            <div className="relative flex items-center">
-              <span className="absolute left-3 text-xs font-bold font-mono text-[#00ff87] pointer-events-none">
-                R$
-              </span>
-              <input
-                type="number"
-                step="0.01"
-                value={paidValue}
-                onChange={(e) => {
-                  setPaidValue(e.target.value);
-                  setErrorMsg('');
-                }}
-                placeholder="0.00"
-                className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl pl-9 pr-3 text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-[#00ff87] transition-all"
-              />
-            </div>
+            <CurrencyInput
+              value={paidValue}
+              onChange={(e) => {
+                setPaidValue(e.target.value);
+                setErrorMsg('');
+              }}
+              placeholder="0,00"
+              className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none focus:border-[#00ff87] transition-all"
+            />
           </div>
 
           {/* 3. CONTA DE DÉBITO */}

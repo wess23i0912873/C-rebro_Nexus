@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import BankIcon from './BankIcon';
+import CurrencyInput from './CurrencyInput';
+import { findBankPreset } from '../constants/assetOptions';
 
 function getBankBadge(acc) {
   if (!acc) return { logo: '🏛️', color: '#192234', label: 'Conta' };
@@ -332,26 +334,19 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
         </div>
 
         {/* 7. VALOR */}
-        <div className="flex flex-col w-[120px] shrink-0">
+        <div className="flex flex-col w-[130px] shrink-0">
           <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 truncate">
             Valor (R$)
           </label>
-          <div className="relative flex items-center">
-            <span className="absolute left-2.5 text-xs font-bold font-mono text-[#00ff87] pointer-events-none">
-              R$
-            </span>
-            <input
-              type="number"
-              name="value"
-              step="0.01"
-              value={formData.value}
-              onChange={handleChange}
-              placeholder="0.00"
-              className={`w-full h-[38px] bg-[#121927] border rounded-xl pl-8 pr-2 text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none transition-all ${
-                errors.value ? 'border-red-500 bg-red-950/20' : 'border-[#192234] focus:border-[#00ff87]'
-              }`}
-            />
-          </div>
+          <CurrencyInput
+            name="value"
+            value={formData.value}
+            onChange={handleChange}
+            placeholder="0,00"
+            className={`w-full h-[38px] bg-[#121927] border rounded-xl text-xs font-bold font-mono text-white placeholder-[#475569] focus:outline-none transition-all ${
+              errors.value ? 'border-red-500 bg-red-950/20' : 'border-[#192234] focus:border-[#00ff87]'
+            }`}
+          />
         </div>
 
         {/* 8. STATUS (TOGGLE VISUAL PAGO VS PENDENTE) */}

@@ -14,6 +14,7 @@ import {
   Check
 } from 'lucide-react';
 import BankIcon from './BankIcon';
+import CurrencyInput from './CurrencyInput';
 
 export default function ReconciliationModal({
   isOpen,
@@ -154,19 +155,12 @@ export default function ReconciliationModal({
                         <label className="block text-[10px] uppercase font-bold text-[#94a3b8] mb-1">
                           Saldo Real no App do Banco
                         </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#64748b] font-mono">
-                            R$
-                          </span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            placeholder={nexusBalance.toFixed(2)}
-                            value={realBalances[account.id] !== undefined ? realBalances[account.id] : ''}
-                            onChange={(e) => handleRealBalanceChange(account.id, e.target.value)}
-                            className="w-36 h-9 pl-9 pr-3 rounded-xl bg-[#121927] border border-[#192234] text-xs font-mono font-bold text-white focus:outline-none focus:border-[#00ff87] transition-all text-right"
-                          />
-                        </div>
+                        <CurrencyInput
+                          placeholder="0,00"
+                          value={realBalances[account.id] !== undefined ? realBalances[account.id] : ''}
+                          onChange={(e) => handleRealBalanceChange(account.id, e.target.value)}
+                          className="w-36 h-9 rounded-xl bg-[#121927] border border-[#192234] text-xs font-mono font-bold text-white focus:outline-none focus:border-[#00ff87] transition-all text-right"
+                        />
                       </div>
                     </div>
 
