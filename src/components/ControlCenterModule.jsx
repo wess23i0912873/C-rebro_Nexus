@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import BankIcon from './BankIcon';
 import CardVisual from './CardVisual';
+import SmartEmojiPicker from './SmartEmojiPicker';
 import { 
   PRESET_BANK_ICONS, 
   PRESET_CARD_IMAGES, 
@@ -89,29 +90,6 @@ function DeleteConfirm({ label, onConfirm, onCancel }) {
           <button onClick={onConfirm} className="flex-1 py-2 rounded-xl bg-red-500/20 border border-red-500/40 text-xs text-red-300 font-bold hover:bg-red-500/30 transition-all cursor-pointer">Excluir</button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Emoji Picker (inline) ────────────────────────────────────────────────────
-
-function EmojiPicker({ emojis, selected, onSelect }) {
-  return (
-    <div className="flex flex-wrap gap-2 p-3 bg-[#0d1320] border border-[#192234] rounded-xl max-h-36 overflow-y-auto custom-scrollbar">
-      {emojis.map(e => (
-        <button
-          key={e}
-          type="button"
-          onClick={() => onSelect(e)}
-          className={`text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-            selected === e
-              ? 'bg-amber-500/20 border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-              : 'hover:bg-[#192234]'
-          }`}
-        >
-          {e}
-        </button>
-      ))}
     </div>
   );
 }
@@ -528,10 +506,14 @@ function CategoriesManager({ categories, onAdd, onEdit, onDelete }) {
               ))}
             </div>
           </div>
-          <div>
-            <label className={labelCls}>Emoji Representativo</label>
-            <EmojiPicker emojis={COMMON_EMOJIS[form.type]} selected={form.emoji} onSelect={e => setForm(p => ({...p, emoji: e}))} />
-          </div>
+          {/* SELETOR AVANÇADO DE EMOJIS COM SUGESTÃO POR IA */}
+          <SmartEmojiPicker
+            selectedEmoji={form.emoji}
+            onSelect={e => setForm(p => ({ ...p, emoji: e }))}
+            targetText={form.name}
+            type={form.type}
+            label="Emoji Representativo"
+          />
           <div className="flex gap-3 pt-1">
             <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl border border-[#192234] text-xs text-[#94a3b8] hover:bg-[#121927] transition-all cursor-pointer">Cancelar</button>
             <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 transition-all cursor-pointer flex items-center justify-center gap-2">
@@ -659,10 +641,14 @@ function RecurringManager({ items, onAdd, onEdit, onDelete }) {
               ))}
             </div>
           </div>
-          <div>
-            <label className={labelCls}>Emoji</label>
-            <EmojiPicker emojis={COMMON_EMOJIS[form.type]} selected={form.emoji} onSelect={e => setForm(p => ({...p, emoji: e}))} />
-          </div>
+          {/* SELETOR AVANÇADO DE EMOJIS COM SUGESTÃO POR IA */}
+          <SmartEmojiPicker
+            selectedEmoji={form.emoji}
+            onSelect={e => setForm(p => ({ ...p, emoji: e }))}
+            targetText={form.name}
+            type={form.type}
+            label="Emoji Representativo"
+          />
           <div className="flex gap-3 pt-1">
             <button onClick={() => setModal(null)} className="flex-1 py-2.5 rounded-xl border border-[#192234] text-xs text-[#94a3b8] hover:bg-[#121927] transition-all cursor-pointer">Cancelar</button>
             <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition-all cursor-pointer flex items-center justify-center gap-2">

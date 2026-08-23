@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * Hook que sincroniza estado com localStorage com suporte a atualizações funcionais
