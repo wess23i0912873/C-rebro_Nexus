@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   PlusCircle, 
-  CheckCircle2,
-  Clock,
-  AlertTriangle
+  CheckCircle2, 
+  Clock, 
+  AlertTriangle, 
+  ArrowRight, 
+  ArrowLeftRight 
 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import BankIcon from './BankIcon';
@@ -36,6 +38,7 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
     type: 'expense',
     category: 'Alimentação',
     accountId: bankAccounts[0]?.id || '',
+    destinationAccountId: bankAccounts[1]?.id || bankAccounts[0]?.id || '',
     payee: '',
     product: '',
     value: '',
@@ -77,14 +80,21 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
     if (name === 'type') {
       const incomeCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES;
       const expenseCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES;
-      const defaultCategory = value === 'income' 
-        ? (incomeCats[0]?.value || incomeCats[0]?.name || 'Salário') 
-        : (expenseCats[0]?.value || expenseCats[0]?.name || 'Alimentação');
+      
+      let defaultCategory = 'Alimentação';
+      if (value === 'income') {
+        defaultCategory = incomeCats[0]?.value || incomeCats[0]?.name || 'Salário';
+      } else if (value === 'transfer') {
+        defaultCategory = 'Transferência';
+      } else {
+        defaultCategory = expenseCats[0]?.value || expenseCats[0]?.name || 'Alimentação';
+      }
       
       setFormData(prev => ({
         ...prev,
         type: value,
-        category: defaultCategory
+        category: defaultCategory,
+        destinationAccountId: prev.destinationAccountId || bankAccounts.find(a => a.id !== prev.accountId)?.id || bankAccounts[0]?.id || ''
       }));
     } else {
       setFormData(prev => ({
@@ -108,14 +118,31 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
       missing.push('Data da Operação');
       newErrors.date = true;
     }
-    if (!formData.accountId && bankAccounts.length > 0) {
-      missing.push('Conta Bancária');
-      newErrors.accountId = true;
+
+    if (formData.type === 'transfer') {
+      if (!formData.accountId) {
+        missing.push('Conta de Origem');
+        newErrors.accountId = true;
+      }
+      if (!formData.destinationAccountId) {
+        missing.push('Conta de Destino');
+        newErrors.destinationAccountId = true;
+      }
+      if (formData.accountId && formData.destinationAccountId && formData.accountId === formData.destinationAccountId) {
+        missing.push('Conta de Origem e Destino não podem ser iguais');
+        newErrors.destinationAccountId = true;
+      }
+    } else {
+      if (!formData.accountId && bankAccounts.length > 0) {
+        missing.push('Conta Bancária');
+        newErrors.accountId = true;
+      }
+      if (!formData.payee || !formData.payee.trim()) {
+        missing.push('Beneficiário / Origem');
+        newErrors.payee = true;
+      }
     }
-    if (!formData.payee || !formData.payee.trim()) {
-      missing.push('Beneficiário / Origem');
-      newErrors.payee = true;
-    }
+
     if (!formData.value || isNaN(parseFloat(formData.value)) || parseFloat(formData.value) <= 0) {
       missing.push('Valor (R$)');
       newErrors.value = true;
@@ -129,10 +156,24 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
     }
 
     const selectedAccountId = formData.accountId || (bankAccounts[0]?.id || '');
+    const originAcc = bankAccounts.find(a => a.id === selectedAccountId);
+    const destAcc = bankAccounts.find(a => a.id === formData.destinationAccountId);
+
+    const finalPayee = formData.type === 'transfer'
+      ? (formData.payee?.trim() || `Transferência: ${originAcc?.name || 'Origem'} ➔ ${destAcc?.name || 'Destino'}`)
+      : formData.payee.trim();
+
+    const finalProduct = formData.type === 'transfer'
+      ? (formData.product?.trim() || 'Transferência entre contas')
+      : formData.product.trim();
     
     onSubmit({
       ...formData,
       accountId: selectedAccountId,
+      destinationAccountId: formData.type === 'transfer' ? formData.destinationAccountId : undefined,
+      payee: finalPayee,
+      product: finalProduct,
+      category: formData.type === 'transfer' ? (formData.category || 'Transferência') : formData.category,
       value: parseFloat(formData.value)
     });
 
@@ -206,7 +247,7 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
         </div>
 
         {/* 2. TIPO */}
-        <div className="flex flex-col w-[110px] shrink-0">
+        <div className="flex flex-col w-[125px] shrink-0">
           <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 truncate">
             Tipo
           </label>
@@ -217,89 +258,154 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
             className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold focus:outline-none transition-all cursor-pointer ${
               formData.type === 'expense' 
                 ? 'border-red-500/80 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.2)]' 
-                : 'border-[#00ff87]/80 text-[#00ff87] shadow-[0_0_10px_rgba(0,255,135,0.2)]'
+                : formData.type === 'transfer'
+                  ? 'border-cyan-500/80 text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                  : 'border-[#00ff87]/80 text-[#00ff87] shadow-[0_0_10px_rgba(0,255,135,0.2)]'
             }`}
           >
             <option value="expense" className="bg-[#0b0f19] text-red-400">🔴 Saída</option>
             <option value="income" className="bg-[#0b0f19] text-[#00ff87]">🟢 Entrada</option>
+            <option value="transfer" className="bg-[#0b0f19] text-cyan-400">🔄 Transferência</option>
           </select>
         </div>
 
-        {/* 3. CATEGORIA (FILTRADA DINAMICAMENTE PELO TIPO) */}
-        <div className="flex flex-col w-[140px] shrink-0">
-          <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 truncate">
-            Categoria
-          </label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            className="w-full h-[38px] bg-[#121927] border border-[#192234] rounded-xl px-2 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
-          >
-            {currentCategories.map((c) => {
-              const val = c.value || c.name;
-              const label = c.label || c.name;
-              return (
-                <option key={c.id || val} value={val} className="bg-[#0b0f19] text-white">
-                  {c.emoji || '🏷️'} {label}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        {/* 4. CONTA BANCÁRIA (BADGE CENTRADO COMPACTO) */}
-        <div className="flex flex-col w-[54px] shrink-0 relative z-40" ref={accountDropdownRef}>
-          <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 text-center truncate">
-            Conta
-          </label>
-          <div className="relative z-50">
-            <button
-              type="button"
-              onClick={() => setIsAccountOpen(!isAccountOpen)}
-              className={`w-full h-[38px] rounded-xl bg-[#121927] border ${
-                errors.accountId 
-                  ? 'border-red-500 animate-pulse bg-red-950/20' 
-                  : 'border-[#192234] hover:border-[#00ff87]/50'
-              } flex items-center justify-center transition-all cursor-pointer`}
-              title={selectedAccountObj?.name || 'Selecionar Conta'}
-            >
-              <BankIcon 
-                src={selectedAccountObj?.icon || selectedAccountObj?.image} 
-                bankName={selectedAccountObj?.name} 
-                size="sm" 
-              />
-            </button>
-
-            {/* Menu Suspenso Flutuante (z-[100]) */}
-            {isAccountOpen && (
-              <div className="absolute top-full left-0 mt-1 z-[100] w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.95)] p-1.5 space-y-1">
-                {bankAccounts.map(acc => {
-                  const isSelected = formData.accountId === acc.id;
-                  return (
-                    <button
-                      key={acc.id}
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, accountId: acc.id }));
-                        setIsAccountOpen(false);
-                        if (errors.accountId) {
-                          setErrors(prev => ({ ...prev, accountId: false }));
-                        }
-                      }}
-                      className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                        isSelected ? 'bg-[#00ff87]/15 text-[#00ff87] border border-[#00ff87]/30' : 'text-white hover:bg-[#121927]'
-                      }`}
-                    >
-                      <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
-                      <span className="truncate">{acc.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+        {/* 3. CATEGORIA (SE FOR TRANSFERÊNCIA, FIXA OU PERMITE AJUSTE) */}
+        {formData.type === 'transfer' ? (
+          <div className="flex flex-col w-[130px] shrink-0">
+            <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1 truncate">
+              Categoria
+            </label>
+            <div className="w-full h-[38px] bg-[#121927] border border-cyan-500/30 rounded-xl px-2 text-xs font-medium text-cyan-300 flex items-center gap-1.5">
+              <span>🔄</span>
+              <span className="truncate">Transferência</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col w-[140px] shrink-0">
+            <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 truncate">
+              Categoria
+            </label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleChange}
+              className="w-full h-[38px] bg-[#121927] border border-[#192234] rounded-xl px-2 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
+            >
+              {currentCategories.map((c) => {
+                const val = c.value || c.name;
+                const label = c.label || c.name;
+                return (
+                  <option key={c.id || val} value={val} className="bg-[#0b0f19] text-white">
+                    {c.emoji || '🏷️'} {label}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
+        {/* 4. CONTAS: SE FOR TRANSFERÊNCIA -> ORIGEM ➔ DESTINO | SE NORMAL -> BADGE ÚNICO */}
+        {formData.type === 'transfer' ? (
+          <div className="flex items-end gap-1.5 shrink-0">
+            {/* Conta de Origem */}
+            <div className="flex flex-col w-[115px] shrink-0">
+              <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1 truncate">
+                Conta Origem
+              </label>
+              <select
+                name="accountId"
+                value={formData.accountId}
+                onChange={handleChange}
+                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer ${
+                  errors.accountId ? 'border-red-500 bg-red-950/20' : 'border-cyan-500/40 focus:border-cyan-400'
+                }`}
+              >
+                {bankAccounts.map(acc => (
+                  <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="h-[38px] flex items-center justify-center text-cyan-400 px-0.5">
+              <ArrowRight size={14} />
+            </div>
+
+            {/* Conta de Destino */}
+            <div className="flex flex-col w-[115px] shrink-0">
+              <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1 truncate">
+                Conta Destino
+              </label>
+              <select
+                name="destinationAccountId"
+                value={formData.destinationAccountId}
+                onChange={handleChange}
+                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer ${
+                  errors.destinationAccountId ? 'border-red-500 bg-red-950/20' : 'border-cyan-500/40 focus:border-cyan-400'
+                }`}
+              >
+                {bankAccounts.map(acc => (
+                  <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col w-[54px] shrink-0 relative z-40" ref={accountDropdownRef}>
+            <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 text-center truncate">
+              Conta
+            </label>
+            <div className="relative z-50">
+              <button
+                type="button"
+                onClick={() => setIsAccountOpen(!isAccountOpen)}
+                className={`w-full h-[38px] rounded-xl bg-[#121927] border ${
+                  errors.accountId 
+                    ? 'border-red-500 animate-pulse bg-red-950/20' 
+                    : 'border-[#192234] hover:border-[#00ff87]/50'
+                } flex items-center justify-center transition-all cursor-pointer`}
+                title={selectedAccountObj?.name || 'Selecionar Conta'}
+              >
+                <BankIcon 
+                  src={selectedAccountObj?.icon || selectedAccountObj?.image} 
+                  bankName={selectedAccountObj?.name} 
+                  size="sm" 
+                />
+              </button>
+
+              {/* Menu Suspenso Flutuante (z-[100]) */}
+              {isAccountOpen && (
+                <div className="absolute top-full left-0 mt-1 z-[100] w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.95)] p-1.5 space-y-1">
+                  {bankAccounts.map(acc => {
+                    const isSelected = formData.accountId === acc.id;
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({ ...prev, accountId: acc.id }));
+                          setIsAccountOpen(false);
+                          if (errors.accountId) {
+                            setErrors(prev => ({ ...prev, accountId: false }));
+                          }
+                        }}
+                        className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                          isSelected ? 'bg-[#00ff87]/15 text-[#00ff87] border border-[#00ff87]/30' : 'text-white hover:bg-[#121927]'
+                        }`}
+                      >
+                        <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                        <span className="truncate">{acc.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* 5. BENEFICIÁRIO (FLEXÍVEL) */}
         <div className="flex flex-col flex-1 min-w-[120px]">

@@ -16,6 +16,7 @@ export default function EditTransactionModal({
     type: transaction.type === 'despesa' ? 'expense' : (transaction.type === 'receita' ? 'income' : transaction.type || 'expense'),
     category: transaction.category || '',
     accountId: transaction.accountId || bankAccounts[0]?.id || '',
+    destinationAccountId: transaction.destinationAccountId || bankAccounts.find(a => a.id !== transaction.accountId)?.id || bankAccounts[0]?.id || '',
     payee: transaction.payee || transaction.description || '',
     product: transaction.product || '',
     value: transaction.value !== undefined ? transaction.value : '',
@@ -36,9 +37,15 @@ export default function EditTransactionModal({
     if (name === 'type') {
       const incomeCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'income') : INCOME_CATEGORIES;
       const expenseCats = categories && categories.length > 0 ? categories.filter(c => c.type === 'expense') : EXPENSE_CATEGORIES;
-      const defaultCategory = value === 'income' 
-        ? (incomeCats[0]?.value || incomeCats[0]?.name || 'Salário') 
-        : (expenseCats[0]?.value || expenseCats[0]?.name || 'Alimentação');
+      
+      let defaultCategory = 'Alimentação';
+      if (value === 'income') {
+        defaultCategory = incomeCats[0]?.value || incomeCats[0]?.name || 'Salário';
+      } else if (value === 'transfer') {
+        defaultCategory = 'Transferência';
+      } else {
+        defaultCategory = expenseCats[0]?.value || expenseCats[0]?.name || 'Alimentação';
+      }
       
       setFormData(prev => ({
         ...prev,
@@ -61,14 +68,31 @@ export default function EditTransactionModal({
       setErrorMsg('Por favor, informe a Data da operação.');
       return;
     }
-    if (!formData.accountId) {
-      setErrorMsg('Por favor, selecione a Conta bancária.');
-      return;
+
+    if (formData.type === 'transfer') {
+      if (!formData.accountId) {
+        setErrorMsg('Por favor, selecione a Conta de Origem.');
+        return;
+      }
+      if (!formData.destinationAccountId) {
+        setErrorMsg('Por favor, selecione a Conta de Destino.');
+        return;
+      }
+      if (formData.accountId === formData.destinationAccountId) {
+        setErrorMsg('A Conta de Origem e de Destino não podem ser iguais.');
+        return;
+      }
+    } else {
+      if (!formData.accountId) {
+        setErrorMsg('Por favor, selecione a Conta bancária.');
+        return;
+      }
+      if (!formData.payee || !formData.payee.trim()) {
+        setErrorMsg('Por favor, informe o Beneficiário / Origem.');
+        return;
+      }
     }
-    if (!formData.payee || !formData.payee.trim()) {
-      setErrorMsg('Por favor, informe o Beneficiário / Origem.');
-      return;
-    }
+
     const numVal = parseFloat(formData.value);
     if (isNaN(numVal) || numVal <= 0) {
       setErrorMsg('Por favor, informe um Valor válido maior que zero.');
@@ -77,6 +101,7 @@ export default function EditTransactionModal({
 
     onSave({
       ...formData,
+      destinationAccountId: formData.type === 'transfer' ? formData.destinationAccountId : undefined,
       value: numVal
     });
   };
@@ -146,11 +171,14 @@ export default function EditTransactionModal({
                 className={`w-full h-10 bg-[#121927] border rounded-xl px-3 text-xs font-semibold focus:outline-none transition-all cursor-pointer ${
                   formData.type === 'expense'
                     ? 'border-red-500/50 text-red-400'
-                    : 'border-[#00ff87]/50 text-[#00ff87]'
+                    : formData.type === 'transfer'
+                      ? 'border-cyan-500/50 text-cyan-400'
+                      : 'border-[#00ff87]/50 text-[#00ff87]'
                 }`}
               >
                 <option value="expense" className="bg-[#0b0f19] text-red-400">🔴 Saída (Despesa)</option>
                 <option value="income" className="bg-[#0b0f19] text-[#00ff87]">🟢 Entrada (Receita)</option>
+                <option value="transfer" className="bg-[#0b0f19] text-cyan-400">🔄 Transferência</option>
               </select>
             </div>
 
@@ -159,42 +187,89 @@ export default function EditTransactionModal({
               <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
                 Categoria
               </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
-              >
-                {currentCategories.map(c => {
-                  const val = c.value || c.name;
-                  const label = c.label || c.name;
-                  return (
-                    <option key={c.id || val} value={val} className="bg-[#0b0f19] text-white">
-                      {c.emoji || '🏷️'} {label}
-                    </option>
-                  );
-                })}
-              </select>
+              {formData.type === 'transfer' ? (
+                <div className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-cyan-300 flex items-center gap-2">
+                  <span>🔄</span>
+                  <span>Transferência</span>
+                </div>
+              ) : (
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
+                >
+                  {currentCategories.map(c => {
+                    const val = c.value || c.name;
+                    const label = c.label || c.name;
+                    return (
+                      <option key={c.id || val} value={val} className="bg-[#0b0f19] text-white">
+                        {c.emoji || '🏷️'} {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
 
-            {/* 4. CONTA BANCÁRIA */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
-                Conta Bancária
-              </label>
-              <select
-                name="accountId"
-                value={formData.accountId}
-                onChange={handleChange}
-                className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
-              >
-                {bankAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* 4. CONTAS: SE TRANSFERÊNCIA -> ORIGEM E DESTINO */}
+            {formData.type === 'transfer' ? (
+              <>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                    Conta de Origem
+                  </label>
+                  <select
+                    name="accountId"
+                    value={formData.accountId}
+                    onChange={handleChange}
+                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer"
+                  >
+                    {bankAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
+                    Conta de Destino
+                  </label>
+                  <select
+                    name="destinationAccountId"
+                    value={formData.destinationAccountId}
+                    onChange={handleChange}
+                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer"
+                  >
+                    {bankAccounts.map(acc => (
+                      <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
+                  Conta Bancária
+                </label>
+                <select
+                  name="accountId"
+                  value={formData.accountId}
+                  onChange={handleChange}
+                  className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
+                >
+                  {bankAccounts.map(acc => (
+                    <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
+                      {acc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* 5. BENEFICIÁRIO */}
             <div className="space-y-1 sm:col-span-2">

@@ -153,16 +153,27 @@ export default function App() {
         if (error) throw error;
         
         if (newTx.status === 'paid') {
-          const account = bankAccounts.find(a => a.id === newTx.accountId);
-          if (account) {
-            const newBalance = newTx.type === 'income' 
-              ? account.balance + newTx.value 
-              : account.balance - newTx.value;
-            
-            await supabase
-              .from('bank_accounts')
-              .update({ balance: newBalance })
-              .eq('id', newTx.accountId);
+          if (newTx.type === 'transfer') {
+            const originAcc = bankAccounts.find(a => a.id === newTx.accountId);
+            const destAcc = bankAccounts.find(a => a.id === newTx.destinationAccountId);
+            if (originAcc) {
+              await supabase.from('bank_accounts').update({ balance: originAcc.balance - newTx.value }).eq('id', originAcc.id);
+            }
+            if (destAcc) {
+              await supabase.from('bank_accounts').update({ balance: destAcc.balance + newTx.value }).eq('id', destAcc.id);
+            }
+          } else {
+            const account = bankAccounts.find(a => a.id === newTx.accountId);
+            if (account) {
+              const newBalance = newTx.type === 'income' 
+                ? account.balance + newTx.value 
+                : account.balance - newTx.value;
+              
+              await supabase
+                .from('bank_accounts')
+                .update({ balance: newBalance })
+                .eq('id', newTx.accountId);
+            }
           }
         }
         
@@ -182,28 +193,73 @@ export default function App() {
   const executeLocalAdd = (tx) => {
     setTransactions(prev => [tx, ...prev]);
 
-    setBankAccounts(prevAccounts => {
-      return prevAccounts.map(account => {
-        if (account.id === tx.accountId) {
-          const diff = tx.type === 'income' ? tx.value : -tx.value;
-          return {
-            ...account,
-            balance: account.balance + diff
-          };
-        }
-        return account;
+    if (tx.status === 'paid') {
+      setBankAccounts(prevAccounts => {
+        return prevAccounts.map(account => {
+          if (tx.type === 'transfer') {
+            if (account.id === tx.accountId) {
+              return { ...account, balance: Math.round((account.balance - tx.value) * 100) / 100 };
+            }
+            if (account.id === tx.destinationAccountId) {
+              return { ...account, balance: Math.round((account.balance + tx.value) * 100) / 100 };
+            }
+            return account;
+          } else {
+            if (account.id === tx.accountId) {
+              const diff = tx.type === 'income' ? tx.value : -tx.value;
+              return {
+                ...account,
+                balance: Math.round((account.balance + diff) * 100) / 100
+              };
+            }
+            return account;
+          }
+        });
       });
-    });
+    }
   };
 
-  // Atualizar Status do Lançamento (ex: Marcar como Pago)
+  // Atualizar Status do Lançamento (ex: Marcar como Pago ou Pendente)
   const handleUpdateStatus = (id, newStatus) => {
+    const targetTx = transactions.find(t => t.id === id);
+    if (!targetTx) return;
+    const oldStatus = targetTx.status;
+
     setTransactions(prev => prev.map(t => {
       if (t.id === id) {
         return { ...t, status: newStatus };
       }
       return t;
     }));
+
+    if (oldStatus !== newStatus) {
+      setBankAccounts(prevAccounts => {
+        let accounts = [...prevAccounts];
+        const isBecomingPaid = newStatus === 'paid';
+        const multiplier = isBecomingPaid ? 1 : -1;
+
+        if (targetTx.type === 'transfer') {
+          accounts = accounts.map(acc => {
+            if (acc.id === targetTx.accountId) {
+              return { ...acc, balance: Math.round((acc.balance - (targetTx.value * multiplier)) * 100) / 100 };
+            }
+            if (acc.id === targetTx.destinationAccountId) {
+              return { ...acc, balance: Math.round((acc.balance + (targetTx.value * multiplier)) * 100) / 100 };
+            }
+            return acc;
+          });
+        } else {
+          accounts = accounts.map(acc => {
+            if (acc.id === targetTx.accountId) {
+              const diff = targetTx.type === 'income' ? (targetTx.value * multiplier) : -(targetTx.value * multiplier);
+              return { ...acc, balance: Math.round((acc.balance + diff) * 100) / 100 };
+            }
+            return acc;
+          });
+        }
+        return accounts;
+      });
+    }
   };
 
   // Atualizar Categoria do Lançamento
@@ -256,14 +312,35 @@ export default function App() {
     if (oldTx) {
       setBankAccounts(prevAccounts => {
         let accounts = [...prevAccounts];
+        
+        // Reverter impacto do status antigo
         if (oldTx.status === 'paid') {
-          const oldDiff = oldTx.type === 'income' ? -oldTx.value : oldTx.value;
-          accounts = accounts.map(acc => acc.id === oldTx.accountId ? { ...acc, balance: acc.balance + oldDiff } : acc);
+          if (oldTx.type === 'transfer') {
+            accounts = accounts.map(acc => {
+              if (acc.id === oldTx.accountId) return { ...acc, balance: Math.round((acc.balance + oldTx.value) * 100) / 100 };
+              if (acc.id === oldTx.destinationAccountId) return { ...acc, balance: Math.round((acc.balance - oldTx.value) * 100) / 100 };
+              return acc;
+            });
+          } else {
+            const oldDiff = oldTx.type === 'income' ? -oldTx.value : oldTx.value;
+            accounts = accounts.map(acc => acc.id === oldTx.accountId ? { ...acc, balance: Math.round((acc.balance + oldDiff) * 100) / 100 } : acc);
+          }
         }
+        
+        // Aplicar impacto do novo status
         if (updatedTx.status === 'paid') {
-          const newDiff = updatedTx.type === 'income' ? updatedTx.value : -updatedTx.value;
-          accounts = accounts.map(acc => acc.id === updatedTx.accountId ? { ...acc, balance: acc.balance + newDiff } : acc);
+          if (updatedTx.type === 'transfer') {
+            accounts = accounts.map(acc => {
+              if (acc.id === updatedTx.accountId) return { ...acc, balance: Math.round((acc.balance - updatedTx.value) * 100) / 100 };
+              if (acc.id === updatedTx.destinationAccountId) return { ...acc, balance: Math.round((acc.balance + updatedTx.value) * 100) / 100 };
+              return acc;
+            });
+          } else {
+            const newDiff = updatedTx.type === 'income' ? updatedTx.value : -updatedTx.value;
+            accounts = accounts.map(acc => acc.id === updatedTx.accountId ? { ...acc, balance: Math.round((acc.balance + newDiff) * 100) / 100 } : acc);
+          }
         }
+        
         return accounts;
       });
     }
@@ -410,18 +487,30 @@ export default function App() {
   const executeLocalDelete = (id, tx) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
     
-    setBankAccounts(prevAccounts => {
-      return prevAccounts.map(account => {
-        if (account.id === tx.accountId) {
-          const diff = tx.type === 'income' ? -tx.value : tx.value;
-          return {
-            ...account,
-            balance: account.balance + diff
-          };
-        }
-        return account;
+    if (tx.status === 'paid') {
+      setBankAccounts(prevAccounts => {
+        return prevAccounts.map(account => {
+          if (tx.type === 'transfer') {
+            if (account.id === tx.accountId) {
+              return { ...account, balance: Math.round((account.balance + tx.value) * 100) / 100 };
+            }
+            if (account.id === tx.destinationAccountId) {
+              return { ...account, balance: Math.round((account.balance - tx.value) * 100) / 100 };
+            }
+            return account;
+          } else {
+            if (account.id === tx.accountId) {
+              const diff = tx.type === 'income' ? -tx.value : tx.value;
+              return {
+                ...account,
+                balance: Math.round((account.balance + diff) * 100) / 100
+              };
+            }
+            return account;
+          }
+        });
       });
-    });
+    }
   };
 
   // Adicionar Lançamentos em Lote (Importação de Extrato)

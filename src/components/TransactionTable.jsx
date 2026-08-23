@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Trash2, Pencil, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Trash2, Pencil, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import EditTransactionModal from './EditTransactionModal';
 import BankIcon from './BankIcon';
@@ -22,6 +22,9 @@ const CATEGORY_EMOJIS = {
 };
 
 function getOriginBadge(tx) {
+  if (tx.type === 'transfer') {
+    return { label: 'Transferência', emoji: '🔄', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' };
+  }
   if (tx.origin === 'extrato' || tx.product === 'Importação Extrato' || tx.id?.toString().includes('ofx') || tx.id?.toString().includes('csv') || tx.id?.toString().includes('imp')) {
     return { label: 'Extrato', emoji: '📥', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' };
   }
@@ -87,6 +90,7 @@ export default function TransactionTable({
     const matchesType = 
       filterType === 'all' ? true : 
       filterType === 'income' ? (t.type === 'income' || t.type === 'receita') : 
+      filterType === 'transfer' ? (t.type === 'transfer') :
       (t.type === 'expense' || t.type === 'despesa');
     
     return matchesSearch && matchesType;
@@ -165,6 +169,16 @@ export default function TransactionTable({
             >
               Entradas
             </button>
+            <button
+              onClick={() => setFilterType('transfer')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                filterType === 'transfer' 
+                  ? 'bg-cyan-500 text-black shadow-sm font-bold' 
+                  : 'text-[#94a3b8] hover:text-white'
+              }`}
+            >
+              Transferências
+            </button>
           </div>
         </div>
       </div>
@@ -193,10 +207,12 @@ export default function TransactionTable({
               </tr>
             ) : (
               filteredTransactions.map((t) => {
+                const isTransfer = t.type === 'transfer';
                 const isExpense = t.type === 'expense' || t.type === 'despesa';
                 const originBadge = getOriginBadge(t);
                 const emoji = getDynamicCategoryEmoji(t.category);
                 const accInfo = getAccountInfo(t.accountId);
+                const destAccInfo = t.destinationAccountId ? getAccountInfo(t.destinationAccountId) : null;
 
                 // Filtrar opções de categoria compatíveis com a natureza da transação (Saída vs Entrada)
                 const categoryOptions = isExpense
@@ -221,15 +237,30 @@ export default function TransactionTable({
 
                     {/* 3. Conta */}
                     <td className="px-5 py-3.5 whitespace-nowrap text-white font-medium">
-                      <span className="inline-flex items-center gap-2">
-                        <BankIcon src={accInfo.icon} bankName={accInfo.name} size="xs" />
-                        <span>{accInfo.name}</span>
-                      </span>
+                      {isTransfer && destAccInfo ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <BankIcon src={accInfo.icon} bankName={accInfo.name} size="xs" />
+                          <span className="truncate max-w-[80px]">{accInfo.name}</span>
+                          <ArrowRight size={11} className="text-cyan-400 shrink-0" />
+                          <BankIcon src={destAccInfo.icon} bankName={destAccInfo.name} size="xs" />
+                          <span className="truncate max-w-[80px]">{destAccInfo.name}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-2">
+                          <BankIcon src={accInfo.icon} bankName={accInfo.name} size="xs" />
+                          <span>{accInfo.name}</span>
+                        </span>
+                      )}
                     </td>
 
-                    {/* 4. Categoria (Filtrada Dinamicamente pelo Tipo da Linha: Saída vs Entrada) */}
+                    {/* 4. Categoria */}
                     <td className="px-5 py-3.5 whitespace-nowrap">
-                      {onUpdateCategory ? (
+                      {isTransfer ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
+                          <span>🔄</span>
+                          <span>Transferência</span>
+                        </span>
+                      ) : onUpdateCategory ? (
                         <select
                           value={t.category || (isExpense ? 'Alimentação' : 'Salário')}
                           onChange={(e) => onUpdateCategory(t.id, e.target.value)}
@@ -269,8 +300,10 @@ export default function TransactionTable({
                     </td>
 
                     {/* 6. Valor */}
-                    <td className={`px-5 py-3.5 whitespace-nowrap font-bold font-mono text-xs ${isExpense ? 'text-rose-400' : 'text-[#00ff87]'}`}>
-                      {isExpense ? '-' : '+'}{formatCurrency(t.value)}
+                    <td className={`px-5 py-3.5 whitespace-nowrap font-bold font-mono text-xs ${
+                      isTransfer ? 'text-cyan-400' : isExpense ? 'text-rose-400' : 'text-[#00ff87]'
+                    }`}>
+                      {isTransfer ? '↔ ' : isExpense ? '-' : '+'}{formatCurrency(t.value)}
                     </td>
 
                     {/* 7. Status */}
