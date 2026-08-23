@@ -8,7 +8,9 @@ import {
   Sparkles, 
   Wallet,
   ArrowRight,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Layers,
+  Check
 } from 'lucide-react';
 import BankIcon from './BankIcon';
 import CurrencyInput from './CurrencyInput';
@@ -23,7 +25,13 @@ export default function ReconciliationModal({
   // Guarda os saldos reais digitados pelo usuário para cada conta { [accId]: string|number }
   const [realBalances, setRealBalances] = useState({});
   const [adjustedAccounts, setAdjustedAccounts] = useState({}); // { [accId]: boolean }
-  const [transferTargets, setTransferTargets] = useState({}); // { [accId]: targetAccId }
+  
+  // Controle de modo de transferência por conta: 'single' vs 'multi'
+  const [transferModes, setTransferModes] = useState({}); // { [accId]: 'single' | 'multi' }
+  const [transferTargets, setTransferTargets] = useState({}); // { [accId]: singleTargetAccId }
+  
+  // Alocações multi-banco: { [accId]: { [otherAccId]: number } }
+  const [multiAllocations, setMultiAllocations] = useState({});
 
   const formatBRL = (val) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -31,10 +39,20 @@ export default function ReconciliationModal({
 
   const handleRealBalanceChange = (accId, value) => {
     setRealBalances(prev => ({ ...prev, [accId]: value }));
-    // Limpa estado de ajustado se o usuário mudar o valor
     if (adjustedAccounts[accId]) {
       setAdjustedAccounts(prev => ({ ...prev, [accId]: false }));
     }
+  };
+
+  const handleMultiAllocationChange = (mainAccId, otherAccId, value) => {
+    const num = parseFloat(value) || 0;
+    setMultiAllocations(prev => ({
+      ...prev,
+      [mainAccId]: {
+        ...(prev[mainAccId] || {}),
+        [otherAccId]: num
+      }
+    }));
   };
 
   // 1. Executa o ajuste direto como Entrada ou Saída externa
@@ -64,8 +82,8 @@ export default function ReconciliationModal({
     setAdjustedAccounts(prev => ({ ...prev, [account.id]: true }));
   };
 
-  // 2. Executa o ajuste como Transferência entre Contas (Sem poluir os gráficos de receita/despesa)
-  const handleTransferAdjust = (account, diff) => {
+  // 2. Executa o ajuste como Transferência Única entre 2 Contas
+  const handleSingleTransferAdjust = (account, diff) => {
     if (Math.abs(diff) < 0.01) return;
 
     const diffValue = Math.abs(diff);
@@ -76,8 +94,6 @@ export default function ReconciliationModal({
 
     if (!otherAccount) return;
 
-    // Se diff > 0: o dinheiro sobrou aqui -> veio do outro banco (Origem: outro, Destino: atual)
-    // Se diff < 0: o dinheiro faltou aqui -> foi para o outro banco (Origem: atual, Destino: outro)
     const isReceiving = diff > 0;
     const originAccountId = isReceiving ? otherAccount.id : account.id;
     const destinationAccountId = isReceiving ? account.id : otherAccount.id;
@@ -102,6 +118,50 @@ export default function ReconciliationModal({
     }
 
     setAdjustedAccounts(prev => ({ ...prev, [account.id]: true }));
+  };
+
+  // 3. Executa o ajuste como Múltiplas Transferências (Concentração de Múltiplos Bancos)
+  const handleMultiTransferAdjust = (account, diff) => {
+    const allocations = multiAllocations[account.id] || {};
+    const today = new Date().toISOString().split('T')[0];
+    const isReceiving = diff > 0;
+
+    let hasExecuted = false;
+
+    Object.entries(allocations).forEach(([otherAccId, value]) => {
+      const numVal = parseFloat(value) || 0;
+      if (numVal > 0.009) {
+        const otherAccount = bankAccounts.find(a => a.id === otherAccId);
+        if (!otherAccount) return;
+
+        const originAccountId = isReceiving ? otherAccount.id : account.id;
+        const destinationAccountId = isReceiving ? account.id : otherAccount.id;
+        const originAcc = isReceiving ? otherAccount : account;
+        const destAcc = isReceiving ? account : otherAccount;
+
+        const transferTransaction = {
+          date: today,
+          type: 'transfer',
+          category: 'Transferência',
+          accountId: originAccountId,
+          destinationAccountId: destinationAccountId,
+          payee: `Transferência: ${originAcc.name} ➔ ${destAcc.name}`,
+          product: `Concentração de saldo em ${account.name}`,
+          value: numVal,
+          status: 'paid',
+          origin: 'reconciliation'
+        };
+
+        if (onAddTransaction) {
+          onAddTransaction(transferTransaction);
+        }
+        hasExecuted = true;
+      }
+    });
+
+    if (hasExecuted) {
+      setAdjustedAccounts(prev => ({ ...prev, [account.id]: true }));
+    }
   };
 
   if (!isOpen) return null;
@@ -161,6 +221,14 @@ export default function ReconciliationModal({
               const otherAccounts = bankAccounts.filter(a => a.id !== account.id);
               const selectedOtherId = transferTargets[account.id] || otherAccounts[0]?.id;
               const selectedTargetAcc = otherAccounts.find(a => a.id === selectedOtherId);
+
+              const currentMode = transferModes[account.id] || 'single';
+              const allocations = multiAllocations[account.id] || {};
+              const currentAllocatedSum = Math.round(
+                Object.values(allocations).reduce((acc, v) => acc + (parseFloat(v) || 0), 0) * 100
+              ) / 100;
+              const targetDiffAbs = Math.round(Math.abs(diff) * 100) / 100;
+              const remainingToAllocate = Math.round(Math.max(0, targetDiffAbs - currentAllocatedSum) * 100) / 100;
 
               return (
                 <div 
@@ -227,19 +295,20 @@ export default function ReconciliationModal({
                           </p>
                           <p className="text-[11px] opacity-80">
                             {diff < 0
-                              ? 'O saldo real no banco é menor do que o calculado. Você transferiu para outro banco ou esqueceu uma despesa?'
-                              : 'O saldo real no banco é maior do que o calculado. Você recebeu uma transferência de outro banco ou uma nova receita?'}
+                              ? 'O saldo real no banco é menor do que o calculado. Você transferiu para outro(s) banco(s) ou esqueceu uma despesa?'
+                              : 'O saldo real no banco é maior do que o calculado. Você concentrou o dinheiro transferindo de outro(s) banco(s) ou recebeu receita?'}
                           </p>
                         </div>
                       </div>
 
-                      {/* DUAS OPÇÕES DE AJUSTE AUTOMÁTICO */}
+                      {/* OPÇÕES DE AJUSTE AUTOMÁTICO */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                         
-                        {/* OPÇÃO 1: TRANSFERÊNCIA ENTRE BANCOS (ISOLA GRÁFICOS) */}
+                        {/* OPÇÃO 1: TRANSFERÊNCIA ENTRE BANCOS (COM SUPORTE A MÚLTIPLAS CONTAS) */}
                         {otherAccounts.length > 0 && (
-                          <div className="p-3.5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-2.5 flex flex-col justify-between">
-                            <div>
+                          <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-3 flex flex-col justify-between">
+                            
+                            <div className="space-y-2.5">
                               <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
                                   <ArrowLeftRight size={14} className="text-cyan-400" />
@@ -250,41 +319,166 @@ export default function ReconciliationModal({
                                 </span>
                               </div>
 
-                              <div className="space-y-1 mt-2">
-                                <label className="text-[10px] text-[#94a3b8] font-semibold block">
-                                  {diff > 0 ? 'De qual banco saiu esse valor?' : 'Para qual banco foi esse valor?'}
-                                </label>
-                                <select
-                                  value={transferTargets[account.id] || otherAccounts[0]?.id}
-                                  onChange={(e) => setTransferTargets(prev => ({ ...prev, [account.id]: e.target.value }))}
-                                  className="w-full h-8 bg-[#121927] border border-[#192234] rounded-lg px-2 text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
-                                >
-                                  {otherAccounts.map(oa => (
-                                    <option key={oa.id} value={oa.id} className="bg-[#0b0f19] text-white">
-                                      {oa.name} (Saldo: {formatBRL(oa.balance)})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
+                              {/* Seletor de Modo: 1 Banco vs Múltiplos Bancos (Concentração) */}
+                              {otherAccounts.length >= 2 && (
+                                <div className="flex rounded-xl bg-[#090d16] p-1 border border-[#192234]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setTransferModes(p => ({ ...p, [account.id]: 'single' }))}
+                                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                                      currentMode === 'single'
+                                        ? 'bg-cyan-500 text-black shadow-sm'
+                                        : 'text-[#94a3b8] hover:text-white'
+                                    }`}
+                                  >
+                                    1 Banco Único
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTransferModes(p => ({ ...p, [account.id]: 'multi' }))}
+                                    className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                                      currentMode === 'multi'
+                                        ? 'bg-cyan-500 text-black shadow-sm'
+                                        : 'text-cyan-400 hover:text-white'
+                                    }`}
+                                  >
+                                    <Layers size={11} />
+                                    <span>Múltiplos Bancos</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* MODO A: 1 BANCO ÚNICO */}
+                              {currentMode === 'single' ? (
+                                <div className="space-y-1.5 pt-1">
+                                  <label className="text-[10px] text-[#94a3b8] font-semibold block">
+                                    {diff > 0 ? 'De qual banco saiu todo esse valor?' : 'Para qual banco foi todo esse valor?'}
+                                  </label>
+                                  <select
+                                    value={transferTargets[account.id] || otherAccounts[0]?.id}
+                                    onChange={(e) => setTransferTargets(prev => ({ ...prev, [account.id]: e.target.value }))}
+                                    className="w-full h-9 bg-[#121927] border border-[#192234] rounded-xl px-2.5 text-xs font-semibold text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                                  >
+                                    {otherAccounts.map(oa => (
+                                      <option key={oa.id} value={oa.id} className="bg-[#0b0f19] text-white">
+                                        {oa.name} (Saldo: {formatBRL(oa.balance)})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : (
+                                /* MODO B: MÚLTIPLOS BANCOS / CONCENTRAÇÃO DE SALDO */
+                                <div className="space-y-2.5 pt-1">
+                                  <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-[#94a3b8] font-semibold">
+                                      {diff > 0 ? 'Quanto veio de cada banco?' : 'Quanto foi para cada banco?'}
+                                    </span>
+                                    <span className={`font-mono font-bold ${currentAllocatedSum === targetDiffAbs ? 'text-[#00ff87]' : 'text-amber-400'}`}>
+                                      {formatBRL(currentAllocatedSum)} / {formatBRL(targetDiffAbs)}
+                                    </span>
+                                  </div>
+
+                                  <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                                    {otherAccounts.map(oa => {
+                                      const currentAlloc = allocations[oa.id] || 0;
+                                      return (
+                                        <div key={oa.id} className="p-2.5 rounded-xl bg-[#090d16] border border-[#192234] space-y-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <BankIcon src={oa.icon || oa.image} bankName={oa.name} size="xs" />
+                                              <span className="text-xs font-bold text-white">{oa.name}</span>
+                                            </div>
+                                            <span className="text-[10px] text-[#64748b] font-mono">
+                                              Saldo: {formatBRL(oa.balance)}
+                                            </span>
+                                          </div>
+
+                                          <div className="flex items-center gap-2">
+                                            <div className="flex-1">
+                                              <CurrencyInput
+                                                placeholder="0,00"
+                                                value={allocations[oa.id] !== undefined ? allocations[oa.id] : ''}
+                                                onChange={(e) => handleMultiAllocationChange(account.id, oa.id, e.target.value)}
+                                                className="w-full h-7 rounded-lg bg-[#121927] border border-[#192234] text-xs font-mono font-bold text-white focus:outline-none focus:border-cyan-400 text-right"
+                                              />
+                                            </div>
+                                            
+                                            {/* Botão Rápido: Usar todo o saldo ou o restante */}
+                                            {oa.balance > 0 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const fillVal = Math.min(oa.balance, remainingToAllocate > 0 ? (currentAlloc + remainingToAllocate) : oa.balance);
+                                                  handleMultiAllocationChange(account.id, oa.id, fillVal);
+                                                }}
+                                                className="px-2 py-1 rounded-lg bg-[#121927] hover:bg-cyan-500/20 text-cyan-300 border border-[#192234] hover:border-cyan-500/40 text-[9px] font-mono whitespace-nowrap cursor-pointer transition-all"
+                                                title={`Preencher com o saldo de ${oa.name}`}
+                                              >
+                                                Todo Saldo ({formatBRL(oa.balance)})
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Indicador de Status da Alocação */}
+                                  {currentAllocatedSum === targetDiffAbs ? (
+                                    <p className="text-[10px] text-[#00ff87] font-bold flex items-center gap-1 animate-fade-in">
+                                      <CheckCircle2 size={12} />
+                                      <span>100% da divergência distribuída entre as contas!</span>
+                                    </p>
+                                  ) : remainingToAllocate > 0 ? (
+                                    <p className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                                      <span>Restam {formatBRL(remainingToAllocate)} para completar o total.</span>
+                                    </p>
+                                  ) : (
+                                    <p className="text-[10px] text-rose-400 font-semibold flex items-center gap-1">
+                                      <span>Excedeu a divergência em {formatBRL(currentAllocatedSum - targetDiffAbs)}.</span>
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => handleTransferAdjust(account, diff)}
-                              className="w-full py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-[0_0_15px_rgba(6,182,212,0.35)] transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-1"
-                            >
-                              <ArrowLeftRight size={13} strokeWidth={2.5} />
-                              <span className="truncate">
-                                {diff > 0 
-                                  ? `Transferir: ${selectedTargetAcc?.name || 'Outro'} ➔ ${account.name}` 
-                                  : `Transferir: ${account.name} ➔ ${selectedTargetAcc?.name || 'Outro'}`}
-                              </span>
-                            </button>
+                            {/* Botão de Ação de Transferência */}
+                            {currentMode === 'single' ? (
+                              <button
+                                type="button"
+                                onClick={() => handleSingleTransferAdjust(account, diff)}
+                                className="w-full py-2.5 px-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs shadow-[0_0_15px_rgba(6,182,212,0.35)] transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-2"
+                              >
+                                <ArrowLeftRight size={13} strokeWidth={2.5} />
+                                <span className="truncate">
+                                  {diff > 0 
+                                    ? `Transferir: ${selectedTargetAcc?.name || 'Outro'} ➔ ${account.name}` 
+                                    : `Transferir: ${account.name} ➔ ${selectedTargetAcc?.name || 'Outro'}`}
+                                </span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={currentAllocatedSum <= 0}
+                                onClick={() => handleMultiTransferAdjust(account, diff)}
+                                className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-2 ${
+                                  currentAllocatedSum > 0
+                                    ? 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_15px_rgba(6,182,212,0.35)]'
+                                    : 'bg-[#121927] text-[#64748b] border border-[#192234] cursor-not-allowed'
+                                }`}
+                              >
+                                <Layers size={13} strokeWidth={2.5} />
+                                <span>
+                                  Executar Transferências Combinadas ({formatBRL(currentAllocatedSum)})
+                                </span>
+                              </button>
+                            )}
+
                           </div>
                         )}
 
                         {/* OPÇÃO 2: AJUSTE EXTERNO (ENTRADA / SAÍDA REAL) */}
-                        <div className="p-3.5 rounded-2xl bg-[#121927] border border-[#192234] space-y-2.5 flex flex-col justify-between">
+                        <div className="p-4 rounded-2xl bg-[#121927] border border-[#192234] space-y-2.5 flex flex-col justify-between">
                           <div>
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-white flex items-center gap-1.5">
@@ -305,11 +499,11 @@ export default function ReconciliationModal({
                           <button
                             type="button"
                             onClick={() => handleAutoAdjust(account, diff)}
-                            className="w-full py-2.5 px-3 rounded-xl bg-[#00ff87] hover:bg-[#26ff98] text-black font-bold text-xs shadow-[0_0_15px_rgba(0,255,135,0.35)] transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-1"
+                            className="w-full py-2.5 px-3 rounded-xl bg-[#00ff87] hover:bg-[#26ff98] text-black font-bold text-xs shadow-[0_0_15px_rgba(0,255,135,0.35)] transition-all cursor-pointer flex items-center justify-center gap-1.5 mt-2"
                           >
                             <Zap size={13} strokeWidth={2.5} />
                             <span>
-                              Lançar Ajuste {diff < 0 ? `(-${formatBRL(Math.abs(diff))})` : `(+${formatBRL(diff)})`}
+                              Lançar Ajuste {diff < 0 ? `(-${formatBRL(Math.abs(diff))}` : `(+${formatBRL(diff)})`}
                             </span>
                           </button>
                         </div>
