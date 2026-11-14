@@ -75,6 +75,11 @@ export default function App() {
   // Carregar dados (Supabase com fallback para Mock)
   useEffect(() => {
     async function loadData() {
+      if (!supabase) {
+        console.warn('Modo offline / Supabase desativado. Usando LocalStorage.');
+        return;
+      }
+
       try {
         const { data: accounts, error: accountsError } = await supabase
           .from('bank_accounts')
