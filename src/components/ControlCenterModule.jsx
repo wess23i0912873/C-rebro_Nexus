@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Settings2,
   CreditCard,
@@ -14,7 +14,7 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Image as ImageIcon
+  Cloud
 } from 'lucide-react';
 import BankIcon from './BankIcon';
 import CardVisual from './CardVisual';
@@ -687,6 +687,7 @@ const MODULES = [
   { id: 'accounts',  label: 'Contas Bancárias',        icon: Landmark,   color: 'cyan',   description: 'Bancos, carteiras e ícones PNG' },
   { id: 'categories',label: 'Categorias',              icon: Tag,        color: 'emerald',description: 'Entradas e saídas por categoria' },
   { id: 'recurring', label: 'Gastos & Rendas Vigentes',icon: Repeat2,    color: 'amber',  description: 'Despesas fixas e rendas recorrentes' },
+  { id: 'sheets',    label: 'Google Sheets',           icon: Cloud,      color: 'cyan',   description: 'Configure sincronização entre dispositivos' },
 ];
 
 const COLOR_MAP = {
@@ -705,10 +706,18 @@ export default function ControlCenterModule({
   categories, onAddCategory, onEditCategory, onDeleteCategory,
   // Recurring
   recurringItems, onAddRecurring, onEditRecurring, onDeleteRecurring,
+  sheetsConfig, onSaveSheetsConfig, syncStatus,
 }) {
   const [activeModule, setActiveModule] = useState('cards');
+  const [sheetsUrl, setSheetsUrl] = useState(sheetsConfig?.url || '');
+  const [sheetsToken, setSheetsToken] = useState(sheetsConfig?.token || '');
   const mod = MODULES.find(m => m.id === activeModule);
   const colors = COLOR_MAP[mod.color];
+
+  useEffect(() => {
+    setSheetsUrl(sheetsConfig?.url || '');
+    setSheetsToken(sheetsConfig?.token || '');
+  }, [sheetsConfig?.url, sheetsConfig?.token]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -723,17 +732,17 @@ export default function ControlCenterModule({
             <span>Central de Controle</span>
           </h3>
           <p className="text-xs sm:text-sm text-[#94a3b8] sm:ml-[52px]">
-            Cadastre cartões, contas com ícones PNG reais, categorias e rendas — tudo com sincronização em tempo real
+            Cadastre contas, cartões, categorias e lançamentos com sincronização automática pela planilha
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold self-start sm:self-auto">
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          Sincronizado • Imagens PNG
+          <div className={`w-2 h-2 rounded-full ${syncStatus === 'error' ? 'bg-red-400' : 'bg-amber-400 animate-pulse'}`} />
+          {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'error' ? 'Falha ao sincronizar' : syncStatus === 'synced' ? 'Google Sheets • Imagens PNG' : 'Configuração pendente'}
         </div>
       </div>
 
       {/* ── Module Tabs ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
         {MODULES.map(m => {
           const Icon = m.icon;
           const isActive = activeModule === m.id;
@@ -781,6 +790,48 @@ export default function ControlCenterModule({
         )}
         {activeModule === 'recurring' && (
           <RecurringManager items={recurringItems} onAdd={onAddRecurring} onEdit={onEditRecurring} onDelete={onDeleteRecurring} />
+        )}
+        {activeModule === 'sheets' && (
+          <form
+            className="max-w-2xl space-y-4"
+            onSubmit={event => {
+              event.preventDefault();
+              onSaveSheetsConfig({ url: sheetsUrl.trim(), token: sheetsToken.trim() });
+            }}
+          >
+            <label className="block">
+              <span className={labelCls}>URL do Web App do Apps Script</span>
+              <input
+                className={inputCls}
+                type="url"
+                required
+                value={sheetsUrl}
+                onChange={event => setSheetsUrl(event.target.value)}
+                placeholder="https://script.google.com/macros/s/.../exec"
+              />
+            </label>
+            <label className="block">
+              <span className={labelCls}>Token de acesso</span>
+              <input
+                className={inputCls}
+                type="password"
+                required
+                value={sheetsToken}
+                onChange={event => setSheetsToken(event.target.value)}
+                autoComplete="new-password"
+                placeholder="O mesmo token definido em Code.gs"
+              />
+            </label>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/80">
+              O token fica salvo neste navegador. Como o Web App precisa aceitar chamadas do site, use um token longo e não compartilhe a URL nem o código do Apps Script.
+            </div>
+            <button type="submit" className="px-4 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all cursor-pointer">
+              Salvar e conectar
+            </button>
+            <p className={`text-xs ${syncStatus === 'error' ? 'text-red-400' : 'text-[#94a3b8]'}`}>
+              {syncStatus === 'syncing' ? 'Sincronizando dados...' : syncStatus === 'synced' ? 'Planilha conectada. Alterações são salvas automaticamente.' : syncStatus === 'error' ? 'Falha ao sincronizar. Confira a URL, o token e a implantação do Web App.' : 'Insira a URL e o token para conectar sua planilha.'}
+            </p>
+          </form>
         )}
       </div>
     </div>
