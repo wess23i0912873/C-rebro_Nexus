@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { findBankPreset } from '../constants/assetOptions';
+import { publicAssetUrl } from '../lib/publicAssetUrl';
 
 /**
  * Componente reutilizável para exibição de ícones de Bancos com fallback elegante
@@ -26,7 +27,7 @@ export default function BankIcon({
   const currentSizeClass = sizeMap[size] || (typeof size === 'string' && size.includes('w-') ? size : sizeMap.md);
 
   // Caminho da imagem: usa src fornecido ou infere do preset
-  const imageSrc = src || preset?.path;
+  const imageSrc = publicAssetUrl(src || preset?.path);
 
   if (imageSrc && !hasError) {
     return (

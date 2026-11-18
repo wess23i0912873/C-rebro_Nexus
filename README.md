@@ -17,6 +17,10 @@ O `localStorage` mantém o cache para a abertura imediata e o uso offline. Quand
 
 O Web App deve aceitar chamadas de qualquer pessoa para funcionar em um site estático sem autenticação Google. O token limita chamadas acidentais, mas não é uma proteção forte: ele fica no navegador e pode ser extraído por qualquer pessoa com acesso ao site. Não use esta implantação para dados que precisem de controle de acesso rigoroso; restrinja o acesso ao site e à planilha e não compartilhe a URL/token. Faça cópias de segurança periódicas da planilha.
 
+## Deploy no GitHub Pages
+
+O workflow [`deploy.yml`](./.github/workflows/deploy.yml) compila o projeto e publica `dist` no GitHub Pages a cada push para `main`; também pode ser iniciado manualmente em **Actions**. Em **Settings → Pages**, selecione **GitHub Actions** como fonte de publicação. O `base` do Vite usa `/C-rebro_Nexus/` no workflow e `/` localmente; atualize esse caminho em `vite.config.js` se o repositório for renomeado.
+
 ## Desenvolvimento
 
 ```sh

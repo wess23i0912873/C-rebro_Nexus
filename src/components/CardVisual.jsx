@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, CreditCard } from 'lucide-react';
 import { findCardPreset } from '../constants/assetOptions';
+import { publicAssetUrl } from '../lib/publicAssetUrl';
 
 /**
  * Componente de visualização de Cartões com suporte a PNG real e fallback premium
@@ -16,7 +17,7 @@ export default function CardVisual({
   const [hasError, setHasError] = useState(false);
   const preset = findCardPreset(image || cardName);
 
-  const imageSrc = image || preset?.path;
+  const imageSrc = publicAssetUrl(image || preset?.path);
   const cardDigits = digits || '•••• 0000';
   const displayName = cardName || preset?.name || 'Cartão de Crédito';
 
