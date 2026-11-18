@@ -26,8 +26,11 @@ function requestJsonp(url, token) {
       reject(new Error('Não foi possível acessar a API da planilha.'));
     };
 
-    const query = new URLSearchParams({ callback: callbackName, token });
-    script.src = `${url}${url.includes('?') ? '&' : '?'}${query.toString()}`;
+    const endpoint = new URL(url);
+    endpoint.searchParams.set('callback', callbackName);
+    endpoint.searchParams.set('token', token);
+    endpoint.searchParams.set('_', String(Date.now()));
+    script.src = endpoint.toString();
     document.head.appendChild(script);
   });
 }
@@ -36,12 +39,12 @@ export async function readSheetData(url, token) {
   return requestJsonp(url, token);
 }
 
-export async function writeSheetData(url, token, data) {
+export async function writeSheetData(url, token, data, base) {
   await fetch(url, {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'sync', token, data }),
+    body: JSON.stringify({ action: 'sync', token, base, data }),
   });
   return readSheetData(url, token);
 }

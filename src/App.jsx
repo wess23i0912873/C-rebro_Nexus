@@ -38,6 +38,81 @@ function stableStringify(value) {
   return JSON.stringify(value);
 }
 
+function toSheetSnapshot({ bankAccounts, cards, transactions, recurringItems, categories }) {
+  const snapshot = {
+    accounts: bankAccounts,
+    cards,
+    transactions,
+    subscriptions: recurringItems,
+    categories,
+  };
+  return JSON.parse(JSON.stringify(snapshot));
+}
+
+function normalizeSheetSnapshot(data = {}) {
+  return {
+    accounts: Array.isArray(data.accounts) ? data.accounts : [],
+    cards: Array.isArray(data.cards) ? data.cards : [],
+    transactions: Array.isArray(data.transactions) ? data.transactions : [],
+    subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
+    categories: Array.isArray(data.categories) ? data.categories : [],
+  };
+}
+
+function mergePendingChanges(base, local, remote) {
+  const merged = {};
+
+  Object.keys(remote).forEach(entity => {
+    const remoteById = new Map(remote[entity].map(record => [String(record.id), record]));
+    const localById = new Map(local[entity].map(record => [String(record.id), record]));
+    const baseById = base
+      ? new Map(base[entity].map(record => [String(record.id), record]))
+      : null;
+
+    if (!baseById) {
+      local[entity].forEach(record => {
+        const id = String(record.id);
+        if (!remoteById.has(id)) remoteById.set(id, record);
+      });
+    } else {
+      baseById.forEach((baseRecord, id) => {
+        const localRecord = localById.get(id);
+        if (!localRecord) {
+          remoteById.delete(id);
+        } else if (stableStringify(localRecord) !== stableStringify(baseRecord)) {
+          remoteById.set(id, localRecord);
+        }
+      });
+      localById.forEach((localRecord, id) => {
+        if (!baseById.has(id)) remoteById.set(id, localRecord);
+      });
+    }
+
+    merged[entity] = Array.from(remoteById.values());
+  });
+
+  return merged;
+}
+
+function pendingChangesConfirmed(base, local, remote) {
+  return Object.keys(local).every(entity => {
+    const baseById = new Map(base[entity].map(record => [String(record.id), record]));
+    const localById = new Map(local[entity].map(record => [String(record.id), record]));
+    const remoteById = new Map(remote[entity].map(record => [String(record.id), record]));
+
+    for (const [id, baseRecord] of baseById) {
+      if (!localById.has(id) && remoteById.has(id)) return false;
+      const localRecord = localById.get(id);
+      if (localRecord && stableStringify(localRecord) !== stableStringify(baseRecord)
+        && stableStringify(remoteById.get(id)) !== stableStringify(localRecord)) return false;
+    }
+    for (const [id, localRecord] of localById) {
+      if (!baseById.has(id) && stableStringify(remoteById.get(id)) !== stableStringify(localRecord)) return false;
+    }
+    return true;
+  });
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('financas');
   const [activeSubTab, setActiveSubTab] = useState('dashline');
@@ -51,18 +126,21 @@ export default function App() {
   const [categories, setCategories] = useLocalStorage('nexus_categories', DEFAULT_CATEGORIES);
   const [recurringItems, setRecurringItems] = useLocalStorage('nexus_recurring', DEFAULT_RECURRING);
   const [sheetsConfig, setSheetsConfig] = useLocalStorage('nexus_google_sheets_config', { url: '', token: '' });
+  const [syncedSnapshot, setSyncedSnapshot] = useLocalStorage('nexus_google_sheets_snapshot', null);
   const [syncStatus, setSyncStatus] = useState('local');
   const [syncRetry, setSyncRetry] = useState(0);
+  const [syncRevision, setSyncRevision] = useState(0);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
-  const skipSyncRef = useRef(false);
   const writingRef = useRef(false);
-  const writeQueueRef = useRef(Promise.resolve());
+  const syncedSnapshotRef = useRef(syncedSnapshot);
+  syncedSnapshotRef.current = syncedSnapshot;
   const localDataRef = useRef(null);
   localDataRef.current = { bankAccounts, cards, transactions, recurringItems, categories };
 
   useEffect(() => {
     let cancelled = false;
     let interval;
+    let loading = false;
     const { url, token } = sheetsConfig;
     setRemoteLoaded(false);
 
@@ -72,81 +150,79 @@ export default function App() {
     }
 
     const loadData = async () => {
-      if (writingRef.current) return;
+      if (writingRef.current || loading || document.visibilityState === 'hidden') return;
+      loading = true;
       setSyncStatus('syncing');
       try {
         const data = await readSheetData(url, token);
         if (cancelled) return;
-        const remote = {
-          accounts: Array.isArray(data.accounts) ? data.accounts : [],
-          cards: Array.isArray(data.cards) ? data.cards : [],
-          transactions: Array.isArray(data.transactions) ? data.transactions : [],
-          subscriptions: Array.isArray(data.subscriptions) ? data.subscriptions : [],
-          categories: Array.isArray(data.categories) ? data.categories : [],
-        };
-        const localData = localDataRef.current;
-        const localHasData = localData.bankAccounts.length || localData.cards.length || localData.transactions.length || localData.recurringItems.length;
-        const remoteHasData = Object.keys(remote).some(key => remote[key].length);
-
-        if (!remoteHasData && localHasData) {
-          const migrated = {
-            accounts: localData.bankAccounts,
-            cards: localData.cards,
-            transactions: localData.transactions,
-            subscriptions: localData.recurringItems,
-            categories: localData.categories,
-          };
-          await writeSheetData(url, token, migrated);
-          if (cancelled) return;
-          setSyncStatus('synced');
-        } else {
-          skipSyncRef.current = true;
-          setBankAccounts(remote.accounts);
-          setCards(remote.cards);
-          setTransactions(remote.transactions);
-          setRecurringItems(remote.subscriptions);
-          setCategories(remote.categories.length ? remote.categories : DEFAULT_CATEGORIES);
-          setSyncStatus('synced');
-        }
+        const remote = normalizeSheetSnapshot(data);
+        const local = toSheetSnapshot(localDataRef.current);
+        const previousBaseline = syncedSnapshotRef.current;
+        const merged = mergePendingChanges(previousBaseline, local, remote);
+        syncedSnapshotRef.current = remote;
+        if (stableStringify(previousBaseline) !== stableStringify(remote)) setSyncedSnapshot(remote);
+        if (stableStringify(local.accounts) !== stableStringify(merged.accounts)) setBankAccounts(merged.accounts);
+        if (stableStringify(local.cards) !== stableStringify(merged.cards)) setCards(merged.cards);
+        if (stableStringify(local.transactions) !== stableStringify(merged.transactions)) setTransactions(merged.transactions);
+        if (stableStringify(local.subscriptions) !== stableStringify(merged.subscriptions)) setRecurringItems(merged.subscriptions);
+        if (stableStringify(local.categories) !== stableStringify(merged.categories)) setCategories(merged.categories);
         setRemoteLoaded(true);
+        setSyncStatus(stableStringify(merged) === stableStringify(remote) ? 'synced' : 'syncing');
       } catch (error) {
         if (cancelled) return;
         console.error('Falha ao carregar dados da planilha:', error);
         setSyncStatus('error');
+      } finally {
+        loading = false;
       }
     };
 
     loadData();
-    interval = window.setInterval(loadData, 30000);
+    interval = window.setInterval(loadData, 15000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadData();
+    };
+    window.addEventListener('focus', loadData);
+    window.addEventListener('online', loadData);
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      window.removeEventListener('focus', loadData);
+      window.removeEventListener('online', loadData);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [sheetsConfig.url, sheetsConfig.token, syncRetry, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories]);
+  }, [sheetsConfig.url, sheetsConfig.token, syncRetry, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories, setSyncedSnapshot]);
 
   useEffect(() => {
     if (!sheetsConfig.url || !remoteLoaded) return undefined;
-    if (skipSyncRef.current) {
-      skipSyncRef.current = false;
-      return undefined;
-    }
+    const currentSnapshot = toSheetSnapshot({ bankAccounts, cards, transactions, recurringItems, categories });
+    const baseline = syncedSnapshotRef.current;
+    if (!baseline || stableStringify(currentSnapshot) === stableStringify(baseline)) return undefined;
 
     const timeout = window.setTimeout(() => {
-      const snapshot = {
-        accounts: bankAccounts,
-        cards,
-        transactions,
-        subscriptions: recurringItems,
-        categories,
-      };
+      if (writingRef.current) return;
+      const snapshot = toSheetSnapshot(localDataRef.current);
+      const base = syncedSnapshotRef.current;
+      if (!base || stableStringify(snapshot) === stableStringify(base)) return;
       setSyncStatus('syncing');
       writingRef.current = true;
-      writeQueueRef.current = writeQueueRef.current
-        .then(() => writeSheetData(sheetsConfig.url, sheetsConfig.token, snapshot))
-        .then(remote => {
-          if (stableStringify(remote) !== stableStringify(snapshot)) {
-            throw new Error('A planilha não confirmou os dados enviados.');
+      writeSheetData(sheetsConfig.url, sheetsConfig.token, snapshot, base)
+        .then(data => {
+          const remote = normalizeSheetSnapshot(data);
+          if (!pendingChangesConfirmed(base, snapshot, remote)) {
+            throw new Error('A planilha não confirmou todas as alterações enviadas.');
           }
+          const latestLocal = toSheetSnapshot(localDataRef.current);
+          const settled = mergePendingChanges(snapshot, latestLocal, remote);
+          syncedSnapshotRef.current = remote;
+          setSyncedSnapshot(remote);
+          if (stableStringify(latestLocal.accounts) !== stableStringify(settled.accounts)) setBankAccounts(settled.accounts);
+          if (stableStringify(latestLocal.cards) !== stableStringify(settled.cards)) setCards(settled.cards);
+          if (stableStringify(latestLocal.transactions) !== stableStringify(settled.transactions)) setTransactions(settled.transactions);
+          if (stableStringify(latestLocal.subscriptions) !== stableStringify(settled.subscriptions)) setRecurringItems(settled.subscriptions);
+          if (stableStringify(latestLocal.categories) !== stableStringify(settled.categories)) setCategories(settled.categories);
           setSyncStatus('synced');
         })
         .catch(error => {
@@ -155,11 +231,12 @@ export default function App() {
         })
         .finally(() => {
           writingRef.current = false;
+          setSyncRevision(value => value + 1);
         });
-    }, 500);
+    }, 400);
 
     return () => window.clearTimeout(timeout);
-  }, [bankAccounts, cards, transactions, recurringItems, categories, remoteLoaded, sheetsConfig.url, sheetsConfig.token]);
+  }, [bankAccounts, cards, transactions, recurringItems, categories, remoteLoaded, sheetsConfig.url, sheetsConfig.token, syncRevision, setSyncedSnapshot, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories]);
 
   // ─── Central de Controle ─ CRUD Handlers ────────────────────────────────────────
 

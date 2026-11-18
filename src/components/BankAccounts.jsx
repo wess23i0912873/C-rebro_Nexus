@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, Landmark, Wallet, Plus, RefreshCw } from 'lucide-react';
+import { Landmark, Wallet, Plus } from 'lucide-react';
 
 export default function BankAccounts({ bankAccounts = [], onAddAccountClick }) {
   const formatCurrency = (val) => {
@@ -102,12 +102,8 @@ export default function BankAccounts({ bankAccounts = [], onAddAccountClick }) {
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-[#1e293b] flex items-center justify-between text-[10px] text-[#475569]">
-        <span className="flex items-center gap-1">
-          <RefreshCw size={10} className="animate-spin text-[var(--color-brand-secondary)]" />
-          Sincronizado em tempo real
-        </span>
-        <span className="font-mono">Supabase</span>
+      <div className="mt-4 pt-3 border-t border-[#1e293b] text-[10px] text-[#475569]">
+        Saldos vinculados aos lançamentos do Cérebro Nexus
       </div>
     </div>
   );

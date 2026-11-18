@@ -735,9 +735,25 @@ export default function ControlCenterModule({
             Cadastre contas, cartões, categorias e lançamentos com sincronização automática pela planilha
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold self-start sm:self-auto">
-          <div className={`w-2 h-2 rounded-full ${syncStatus === 'error' ? 'bg-red-400' : 'bg-amber-400 animate-pulse'}`} />
-          {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'error' ? 'Falha ao sincronizar' : syncStatus === 'synced' ? 'Google Sheets • Imagens PNG' : 'Configuração pendente'}
+        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold self-start sm:self-auto ${
+          syncStatus === 'error'
+            ? 'bg-red-500/10 border-red-500/20 text-red-300'
+            : syncStatus === 'synced'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${
+            syncStatus === 'error' ? 'bg-red-400' : syncStatus === 'synced' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
+          }`} />
+          {syncStatus === 'syncing'
+            ? 'Sincronizando...'
+            : syncStatus === 'error'
+              ? 'Falha ao sincronizar'
+              : syncStatus === 'synced'
+                ? 'Google Sheets conectado'
+                : sheetsConfig?.url
+                  ? 'Aguardando sincronização'
+                  : 'Modo local'}
         </div>
       </div>
 
@@ -823,13 +839,21 @@ export default function ControlCenterModule({
               />
             </label>
             <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/80">
-              O token fica salvo neste navegador. Como o Web App precisa aceitar chamadas do site, use um token longo e não compartilhe a URL nem o código do Apps Script.
+              Os dados continuam disponíveis no navegador se a conexão cair. A planilha é atualizada automaticamente; outros dispositivos são consultados a cada 15 segundos e ao voltar para esta página. O token fica salvo neste navegador e não substitui controles de acesso fortes.
             </div>
             <button type="submit" className="px-4 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all cursor-pointer">
               Salvar e conectar
             </button>
             <p className={`text-xs ${syncStatus === 'error' ? 'text-red-400' : 'text-[#94a3b8]'}`}>
-              {syncStatus === 'syncing' ? 'Sincronizando dados...' : syncStatus === 'synced' ? 'Planilha conectada. Alterações são salvas automaticamente.' : syncStatus === 'error' ? 'Falha ao sincronizar. Confira a URL, o token e a implantação do Web App.' : 'Insira a URL e o token para conectar sua planilha.'}
+              {syncStatus === 'syncing'
+                ? 'Sincronizando dados...'
+                : syncStatus === 'synced'
+                  ? 'Planilha conectada. Contas, cartões, lançamentos, parcelas, recorrências e categorias são sincronizados.'
+                  : syncStatus === 'error'
+                    ? 'Falha ao sincronizar. Confira a URL, o token e se publicou a versão atual do Apps Script.'
+                    : sheetsUrl
+                      ? 'Salve a configuração para conectar a planilha.'
+                      : 'Sem URL, o sistema opera em modo local e mantém o cache neste navegador.'}
             </p>
           </form>
         )}
