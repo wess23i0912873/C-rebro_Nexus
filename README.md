@@ -1,30 +1,78 @@
 # Cérebro Nexus
 
-Aplicação de controle financeiro em React/Vite. Os dados podem ser sincronizados entre dispositivos usando uma Planilha Google como armazenamento principal; o navegador mantém uma cópia local para abertura rápida e uso temporário offline.
+Aplicação de controle financeiro pessoal desenvolvida em **React 19**, **Vite** e **Tailwind CSS 4**. Utiliza uma Planilha Google vinculada ao Google Apps Script como banco de dados principal seguro e serverless, com cópia local em cache no navegador para abertura instantânea e uso offline.
 
-## Conectar ao Google Sheets
+---
 
-1. Crie ou abra uma Planilha Google e acesse **Extensões → Apps Script**.
-2. Cole o conteúdo completo de [`Code.gs`](./Code.gs). Substitua `API_TOKEN` por uma sequência longa e aleatória.
-3. No editor do Apps Script, execute `setupSpreadsheet` uma vez e autorize o acesso à planilha. As abas e os cabeçalhos de contas, cartões, transações/parcelas, assinaturas e categorias também são criados automaticamente na primeira chamada do Web App.
-4. Clique em **Implantar → Nova implantação → App da Web**. Execute como você e permita acesso a **Qualquer pessoa** para que o GitHub Pages possa chamar o Web App. Autorize a implantação.
-5. Copie a URL terminada em `/exec`. No Cérebro Nexus, abra **Central de Controle → Google Sheets** e salve a URL e o mesmo token definido em `Code.gs`.
-6. Ao publicar uma nova versão do Apps Script, atualize a implantação do Web App para usar essa versão.
+## 🚀 Arquitetura de Autenticação e Sincronização (v2.0)
 
-O `localStorage` mantém o cache para a abertura imediata e o uso offline. Quando conectado, o app carrega e sincroniza alterações automaticamente; para receber mudanças de outros dispositivos, consulta a planilha a cada 15 segundos e ao voltar para a página ou recuperar a conexão. A leitura usa JSONP e a escrita usa uma requisição simples `no-cors`, evitando a necessidade de configurar cabeçalhos CORS no Apps Script. As escritas são aplicadas como diferenças sobre a última leitura, sob bloqueio, para reduzir conflitos entre dispositivos.
+- **Login com Google (Google Identity Services):** Acesso restrito via OAuth 2.0. O frontend obtém o Google ID Token e o envia ao Apps Script.
+- **Sessão Assinada HMAC-SHA256:** O backend valida o ID Token com a API do Google (`https://oauth2.googleapis.com/tokeninfo`), confere o Client ID, e-mail verificado e lista de e-mails autorizados (`ALLOWED_EMAILS`), emitindo um token de sessão próprio assinado válido por 30 dias.
+- **Sem Tokens Manuais no Frontend:** Não é necessário digitar URLs ou tokens na interface. As credenciais públicas (`VITE_SHEETS_URL` e `VITE_GOOGLE_CLIENT_ID`) são injetadas em tempo de build via variáveis de ambiente.
+- **Comunicação Confiável via POST:** Todas as operações (login, leitura e escrita) utilizam `fetch` com método `POST` e `Content-Type: text/plain`, permitindo respostas CORS limpas em JSON sem necessidade de JSONP ou requisições cegas `no-cors`.
+- **Sincronização em Três Vias sob Bloqueio:** As alterações locais são calculadas como diff sobre o baseline sincronizado e gravadas atomicamente com `LockService` no Apps Script.
+- **Indicador de Salvamento em Tempo Real:** O header exibe o estado da sincronização em tempo real:
+  - `Salvo às HH:MM ✓`: confirmação recebida da planilha.
+  - `Salvando…`: gravação em andamento.
+  - `Pendente (não salvo ainda)`: alterações locais aguardando envio.
+  - `Sem conexão (salvo só neste aparelho)`: modo offline seguro.
+  - `Erro ao salvar`: com botão de nova tentativa imediata e recálculo com backoff exponencial automático.
 
-## Segurança
+---
 
-O Web App deve aceitar chamadas de qualquer pessoa para funcionar em um site estático sem autenticação Google. O token limita chamadas acidentais, mas não é uma proteção forte: ele fica no navegador e pode ser extraído por qualquer pessoa com acesso ao site. Não use esta implantação para dados que precisem de controle de acesso rigoroso; restrinja o acesso ao site e à planilha e não compartilhe a URL/token. Faça cópias de segurança periódicas da planilha.
+## 🛠️ Passo a Passo de Configuração
 
-## Deploy no GitHub Pages
+### 1. Criar Credenciais no Google Cloud Console
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com/) e selecione ou crie um projeto.
+2. Em **APIs e serviços → Tela de permissão OAuth**, configure a tela como *Externa* (ou *Interna* se usar Google Workspace), defina o nome do app e informe seus e-mails de suporte.
+3. Em **APIs e serviços → Credenciais**, clique em **Criar credenciais → ID do cliente OAuth**:
+   - **Tipo de aplicativo:** *Aplicativo da Web*
+   - **Nome:** `Cérebro Nexus Web`
+   - **Origens JavaScript autorizadas:**
+     - `http://localhost:5173` (para desenvolvimento local)
+     - `https://wess23i0912873.github.io` (URL de produção no GitHub Pages)
+4. Copie o **ID do cliente** gerado (terminado em `.apps.googleusercontent.com`).
 
-O workflow [`deploy.yml`](./.github/workflows/deploy.yml) compila o projeto e publica `dist` no GitHub Pages a cada push para `main`; também pode ser iniciado manualmente em **Actions**. Em **Settings → Pages**, selecione **GitHub Actions** como fonte de publicação. O `base` do Vite usa `/C-rebro_Nexus/` no workflow e `/` localmente; atualize esse caminho em `vite.config.js` se o repositório for renomeado.
+### 2. Configurar o Apps Script na Planilha Google
+1. Abra a sua Planilha Google e acesse **Extensões → Apps Script**.
+2. Substitua o conteúdo do arquivo `Código.gs` pelo conteúdo atualizado de [`Code.gs`](./Code.gs).
+3. No menu lateral do Apps Script, acesse **Configurações do Projeto (ícone de engrenagem) → Propriedades do script** e adicione:
+   - `GOOGLE_CLIENT_ID`: Cole o seu Client ID gerado no passo 1.
+   - `ALLOWED_EMAILS`: Lista de e-mails autorizados separados por vírgula (ex.: `seuemail@gmail.com`).
+   - *(Opcional)* `SESSION_SECRET`: Chave secreta longa para assinatura HMAC-SHA256 (se não definida, o script gerará uma chave única automaticamente na primeira execução).
+4. No menu superior do editor, selecione a função `setupSpreadsheet` e clique em **Executar** uma vez para conceder as permissões necessárias e criar os cabeçalhos das abas.
+5. Clique em **Implantar → Nova implantação**:
+   - **Tipo:** *App da Web*
+   - **Executar como:** *Eu (seu e-mail)*
+   - **Quem pode acessar:** *Qualquer pessoa*
+6. Copie a **URL do app da Web** gerada (terminada em `/exec`).
 
-## Desenvolvimento
+### 3. Configurar as Variáveis no GitHub (Deploy Automático)
+1. No repositório no GitHub, acesse **Settings → Secrets and variables → Actions → Variables** (aba **Variables**, não Secrets).
+2. Adicione as seguintes variáveis:
+   - `VITE_SHEETS_URL`: A URL do Web App do Apps Script copiada no passo 2.
+   - `VITE_GOOGLE_CLIENT_ID`: O Google Client ID copiado no passo 1.
+3. O workflow [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) compilará automaticamente e injetará essas variáveis a cada push para o branch `main`.
 
-```sh
-npm install
-npm run dev
-npm run build
-```
+---
+
+## 💻 Desenvolvimento Local
+
+1. Instale as dependências:
+   ```sh
+   npm install
+   ```
+2. Crie um arquivo `.env` na raiz baseado no [`.env.example`](./.env.example):
+   ```sh
+   cp .env.example .env
+   ```
+3. Preencha `VITE_SHEETS_URL` e `VITE_GOOGLE_CLIENT_ID` com os seus valores.
+4. Inicie o servidor de desenvolvimento:
+   ```sh
+   npm run dev
+   ```
+5. Para testar o build de produção:
+   ```sh
+   npm run build
+   npm run preview
+   ```
