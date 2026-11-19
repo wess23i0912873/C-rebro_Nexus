@@ -30,6 +30,9 @@ jobs:
         run: npm ci
 
       - name: Build Vite application
+        env:
+          VITE_SHEETS_URL: ${{ vars.VITE_SHEETS_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Upload Pages artifact
