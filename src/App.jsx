@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import FinancialNavTabs from './components/FinancialNavTabs';
 import Dashline from './components/Dashline';
@@ -6,9 +6,12 @@ import CardsModule from './components/CardsModule';
 import PreenchimentoModule from './components/PreenchimentoModule';
 import SimulacaoModule from './components/SimulacaoModule';
 import ControlCenterModule from './components/ControlCenterModule';
+import LoginScreen from './components/LoginScreen';
+import SyncStatusBadge from './components/SyncStatusBadge';
 import { useLocalStorage } from './lib/useLocalStorage';
 import { Bell } from 'lucide-react';
 import { readSheetData, writeSheetData } from './lib/googleSheetsApi';
+import { CONFIG } from './config';
 
 const DEFAULT_ACCOUNTS = [];
 const DEFAULT_CARDS = [];
@@ -29,6 +32,7 @@ const DEFAULT_CATEGORIES = [
 
 const DEFAULT_RECURRING = [];
 const MOCK_TRANSACTIONS = [];
+const BACKOFF_DELAYS = [2000, 5000, 15000, 30000];
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
@@ -118,125 +122,268 @@ export default function App() {
   const [activeSubTab, setActiveSubTab] = useState('dashline');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // ─── Sessão Google OAuth (GIS + HMAC-SHA256) ───────────────────────────────
+  const [session, setSession] = useLocalStorage('nexus_session', null);
+  const isAuthenticated = Boolean(
+    session?.sessionToken &&
+    session?.expiresAt &&
+    session.expiresAt > Date.now()
+  );
+
+  // ─── Estado Financeiro Persistido no Navegador (Cache Offline) ───────────────
   const [bankAccounts, setBankAccounts] = useLocalStorage('nexus_bank_accounts', DEFAULT_ACCOUNTS);
   const [transactions, setTransactions] = useLocalStorage('nexus_transactions', MOCK_TRANSACTIONS);
-
-  // ─── Central de Controle ─ Estado Global Persistido ─────────────────────────────────────
   const [cards, setCards] = useLocalStorage('nexus_cards', DEFAULT_CARDS);
   const [categories, setCategories] = useLocalStorage('nexus_categories', DEFAULT_CATEGORIES);
   const [recurringItems, setRecurringItems] = useLocalStorage('nexus_recurring', DEFAULT_RECURRING);
-  const [sheetsConfig, setSheetsConfig] = useLocalStorage('nexus_google_sheets_config', { url: '', token: '' });
+
+  // ─── Estado de Sincronização com a Planilha Google ─────────────────────────
   const [syncedSnapshot, setSyncedSnapshot] = useLocalStorage('nexus_google_sheets_snapshot', null);
-  const [syncStatus, setSyncStatus] = useState('local');
-  const [syncRetry, setSyncRetry] = useState(0);
+  const [lastSavedAt, setLastSavedAt] = useLocalStorage('nexus_last_saved_at', null);
+  const [syncStatus, setSyncStatus] = useState('saved'); // 'saved' | 'saving' | 'pending' | 'offline' | 'error'
+  const [syncError, setSyncError] = useState('');
   const [syncRevision, setSyncRevision] = useState(0);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
+
   const writingRef = useRef(false);
+  const loadingRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const retryTimeoutRef = useRef(null);
+
   const syncedSnapshotRef = useRef(syncedSnapshot);
   syncedSnapshotRef.current = syncedSnapshot;
   const localDataRef = useRef(null);
   localDataRef.current = { bankAccounts, cards, transactions, recurringItems, categories };
 
-  useEffect(() => {
-    let cancelled = false;
-    let interval;
-    let loading = false;
-    const { url, token } = sheetsConfig;
+  // ─── Ações de Autenticação ─────────────────────────────────────────────────
+  const handleLoginSuccess = useCallback((sessionData) => {
+    setSession(sessionData);
+    setSyncError('');
     setRemoteLoaded(false);
+    setSyncRevision(v => v + 1);
+  }, [setSession]);
 
-    if (!url) {
-      setSyncStatus('local');
-      return undefined;
+  const handleLogout = useCallback(() => {
+    setSession(null);
+    setSyncError('');
+  }, [setSession]);
+
+  // ─── Leitura em Segundo Plano ──────────────────────────────────────────────
+  const loadRemoteData = useCallback(async () => {
+    if (!isAuthenticated || !CONFIG.sheetsUrl) return;
+    if (writingRef.current || loadingRef.current || document.visibilityState === 'hidden') return;
+
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+      return;
     }
 
-    const loadData = async () => {
-      if (writingRef.current || loading || document.visibilityState === 'hidden') return;
-      loading = true;
-      setSyncStatus('syncing');
-      try {
-        const data = await readSheetData(url, token);
-        if (cancelled) return;
-        const remote = normalizeSheetSnapshot(data);
-        const local = toSheetSnapshot(localDataRef.current);
-        const previousBaseline = syncedSnapshotRef.current;
-        const merged = mergePendingChanges(previousBaseline, local, remote);
-        syncedSnapshotRef.current = remote;
-        if (stableStringify(previousBaseline) !== stableStringify(remote)) setSyncedSnapshot(remote);
-        if (stableStringify(local.accounts) !== stableStringify(merged.accounts)) setBankAccounts(merged.accounts);
-        if (stableStringify(local.cards) !== stableStringify(merged.cards)) setCards(merged.cards);
-        if (stableStringify(local.transactions) !== stableStringify(merged.transactions)) setTransactions(merged.transactions);
-        if (stableStringify(local.subscriptions) !== stableStringify(merged.subscriptions)) setRecurringItems(merged.subscriptions);
-        if (stableStringify(local.categories) !== stableStringify(merged.categories)) setCategories(merged.categories);
-        setRemoteLoaded(true);
-        setSyncStatus(stableStringify(merged) === stableStringify(remote) ? 'synced' : 'syncing');
-      } catch (error) {
-        if (cancelled) return;
-        console.error('Falha ao carregar dados da planilha:', error);
+    loadingRef.current = true;
+    try {
+      const data = await readSheetData(CONFIG.sheetsUrl, session.sessionToken);
+      const remote = normalizeSheetSnapshot(data);
+      const local = toSheetSnapshot(localDataRef.current);
+      const previousBaseline = syncedSnapshotRef.current;
+      const merged = mergePendingChanges(previousBaseline, local, remote);
+
+      syncedSnapshotRef.current = remote;
+      if (stableStringify(previousBaseline) !== stableStringify(remote)) {
+        setSyncedSnapshot(remote);
+      }
+
+      if (stableStringify(local.accounts) !== stableStringify(merged.accounts)) setBankAccounts(merged.accounts);
+      if (stableStringify(local.cards) !== stableStringify(merged.cards)) setCards(merged.cards);
+      if (stableStringify(local.transactions) !== stableStringify(merged.transactions)) setTransactions(merged.transactions);
+      if (stableStringify(local.subscriptions) !== stableStringify(merged.subscriptions)) setRecurringItems(merged.subscriptions);
+      if (stableStringify(local.categories) !== stableStringify(merged.categories)) setCategories(merged.categories);
+
+      const hasPendingChanges = stableStringify(merged) !== stableStringify(remote);
+      setRemoteLoaded(true);
+      setSyncError('');
+      retryCountRef.current = 0;
+
+      if (hasPendingChanges) {
+        setSyncStatus('pending');
+        setSyncRevision(v => v + 1);
+      } else {
+        setSyncStatus('saved');
+        if (!lastSavedAt) {
+          setLastSavedAt(new Date().toISOString());
+        }
+      }
+    } catch (error) {
+      console.error('Falha ao ler dados da planilha:', error);
+      if (error?.isAuthError) {
+        setSession(null); // Retorna à tela de login sem perder dados locais
+        return;
+      }
+
+      if (!navigator.onLine) {
+        setSyncStatus('offline');
+      } else {
+        setSyncError(error instanceof Error ? error.message : String(error));
         setSyncStatus('error');
-      } finally {
-        loading = false;
+      }
+    } finally {
+      loadingRef.current = false;
+    }
+  }, [isAuthenticated, session?.sessionToken, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories, setSession, setSyncedSnapshot, lastSavedAt, setLastSavedAt]);
+
+  // ─── Tentativa Manual de Sincronização ─────────────────────────────────────
+  const handleManualRetry = useCallback(() => {
+    if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+    retryCountRef.current = 0;
+    setSyncError('');
+    if (remoteLoaded) {
+      setSyncRevision(v => v + 1);
+    } else {
+      loadRemoteData();
+    }
+  }, [remoteLoaded, loadRemoteData]);
+
+  // ─── Polling Periódico (15 segundos) ───────────────────────────────────────
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    loadRemoteData();
+    const interval = window.setInterval(loadRemoteData, 15000);
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated, loadRemoteData]);
+
+  // ─── Eventos de Rede e Foco na Aba ─────────────────────────────────────────
+  useEffect(() => {
+    const handleOnline = () => {
+      setSyncError('');
+      retryCountRef.current = 0;
+      loadRemoteData();
+      setSyncRevision(v => v + 1);
+    };
+
+    const handleOffline = () => {
+      setSyncStatus('offline');
+    };
+
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        loadRemoteData();
       }
     };
 
-    loadData();
-    interval = window.setInterval(loadData, 15000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') loadData();
-    };
-    window.addEventListener('focus', loadData);
-    window.addEventListener('online', loadData);
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener('focus', loadData);
-      window.removeEventListener('online', loadData);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [sheetsConfig.url, sheetsConfig.token, syncRetry, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories, setSyncedSnapshot]);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
 
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
+    };
+  }, [loadRemoteData]);
+
+  // ─── Aviso beforeunload ao Fechar com Alterações Não Salvas ─────────────────
   useEffect(() => {
-    if (!sheetsConfig.url || !remoteLoaded) return undefined;
+    const handleBeforeUnload = (event) => {
+      const hasUnsavedChanges = writingRef.current || (
+        syncedSnapshotRef.current &&
+        stableStringify(toSheetSnapshot(localDataRef.current)) !== stableStringify(syncedSnapshotRef.current)
+      );
+      if (hasUnsavedChanges) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // ─── Gravação sob Demanda com Debounce e Confirmação do Servidor ───────────
+  useEffect(() => {
+    if (!isAuthenticated || !CONFIG.sheetsUrl || !remoteLoaded) return undefined;
+
     const currentSnapshot = toSheetSnapshot({ bankAccounts, cards, transactions, recurringItems, categories });
     const baseline = syncedSnapshotRef.current;
-    if (!baseline || stableStringify(currentSnapshot) === stableStringify(baseline)) return undefined;
 
-    const timeout = window.setTimeout(() => {
+    // Se os dados locais coincidem com a base sincronizada, está tudo salvo
+    if (baseline && stableStringify(currentSnapshot) === stableStringify(baseline)) {
+      if (syncStatus === 'pending' || syncStatus === 'saving') {
+        setSyncStatus('saved');
+      }
+      return undefined;
+    }
+
+    if (!navigator.onLine) {
+      setSyncStatus('offline');
+      return undefined;
+    }
+
+    setSyncStatus('pending');
+
+    const timeout = window.setTimeout(async () => {
       if (writingRef.current) return;
       const snapshot = toSheetSnapshot(localDataRef.current);
       const base = syncedSnapshotRef.current;
-      if (!base || stableStringify(snapshot) === stableStringify(base)) return;
-      setSyncStatus('syncing');
+      if (!base || stableStringify(snapshot) === stableStringify(base)) {
+        setSyncStatus('saved');
+        return;
+      }
+
+      setSyncStatus('saving');
       writingRef.current = true;
-      writeSheetData(sheetsConfig.url, sheetsConfig.token, snapshot, base)
-        .then(data => {
-          const remote = normalizeSheetSnapshot(data);
-          if (!pendingChangesConfirmed(base, snapshot, remote)) {
-            throw new Error('A planilha não confirmou todas as alterações enviadas.');
-          }
-          const latestLocal = toSheetSnapshot(localDataRef.current);
-          const settled = mergePendingChanges(snapshot, latestLocal, remote);
-          syncedSnapshotRef.current = remote;
-          setSyncedSnapshot(remote);
-          if (stableStringify(latestLocal.accounts) !== stableStringify(settled.accounts)) setBankAccounts(settled.accounts);
-          if (stableStringify(latestLocal.cards) !== stableStringify(settled.cards)) setCards(settled.cards);
-          if (stableStringify(latestLocal.transactions) !== stableStringify(settled.transactions)) setTransactions(settled.transactions);
-          if (stableStringify(latestLocal.subscriptions) !== stableStringify(settled.subscriptions)) setRecurringItems(settled.subscriptions);
-          if (stableStringify(latestLocal.categories) !== stableStringify(settled.categories)) setCategories(settled.categories);
-          setSyncStatus('synced');
-        })
-        .catch(error => {
-          console.error('Falha ao sincronizar com Google Sheets:', error);
+
+      try {
+        const data = await writeSheetData(CONFIG.sheetsUrl, session.sessionToken, snapshot, base);
+        const remote = normalizeSheetSnapshot(data);
+        if (!pendingChangesConfirmed(base, snapshot, remote)) {
+          throw new Error('A planilha não confirmou todas as alterações enviadas.');
+        }
+
+        const latestLocal = toSheetSnapshot(localDataRef.current);
+        const settled = mergePendingChanges(snapshot, latestLocal, remote);
+        syncedSnapshotRef.current = remote;
+        setSyncedSnapshot(remote);
+
+        if (stableStringify(latestLocal.accounts) !== stableStringify(settled.accounts)) setBankAccounts(settled.accounts);
+        if (stableStringify(latestLocal.cards) !== stableStringify(settled.cards)) setCards(settled.cards);
+        if (stableStringify(latestLocal.transactions) !== stableStringify(settled.transactions)) setTransactions(settled.transactions);
+        if (stableStringify(latestLocal.subscriptions) !== stableStringify(settled.subscriptions)) setRecurringItems(settled.subscriptions);
+        if (stableStringify(latestLocal.categories) !== stableStringify(settled.categories)) setCategories(settled.categories);
+
+        const now = new Date();
+        setLastSavedAt(now.toISOString());
+        setSyncStatus('saved');
+        setSyncError('');
+        retryCountRef.current = 0;
+      } catch (error) {
+        console.error('Falha ao sincronizar com Google Sheets:', error);
+        if (error?.isAuthError) {
+          setSession(null);
+          return;
+        }
+
+        if (!navigator.onLine) {
+          setSyncStatus('offline');
+        } else {
+          setSyncError(error instanceof Error ? error.message : String(error));
           setSyncStatus('error');
-        })
-        .finally(() => {
-          writingRef.current = false;
-          setSyncRevision(value => value + 1);
-        });
+
+          // Backoff exponencial para nova tentativa
+          const count = retryCountRef.current;
+          const delay = BACKOFF_DELAYS[Math.min(count, BACKOFF_DELAYS.length - 1)];
+          retryCountRef.current = count + 1;
+          if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+          retryTimeoutRef.current = setTimeout(() => {
+            setSyncRevision(v => v + 1);
+          }, delay);
+        }
+      } finally {
+        writingRef.current = false;
+      }
     }, 400);
 
     return () => window.clearTimeout(timeout);
-  }, [bankAccounts, cards, transactions, recurringItems, categories, remoteLoaded, sheetsConfig.url, sheetsConfig.token, syncRevision, setSyncedSnapshot, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories]);
+  }, [bankAccounts, cards, transactions, recurringItems, categories, remoteLoaded, isAuthenticated, session?.sessionToken, syncRevision, setSyncedSnapshot, setBankAccounts, setCards, setTransactions, setRecurringItems, setCategories, setSession, setLastSavedAt, syncStatus]);
 
   // ─── Central de Controle ─ CRUD Handlers ────────────────────────────────────────
 
@@ -565,6 +712,16 @@ export default function App() {
     setTransactions(prev => [...formattedTxs, ...prev]);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
+        sheetsUrl={CONFIG.sheetsUrl}
+        googleClientId={CONFIG.googleClientId}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg-dark)] flex">
       {/* Sidebar Lateral Colapsável */}
@@ -585,15 +742,12 @@ export default function App() {
             <h2 className="font-display font-extrabold text-xl text-white tracking-tight">
               Módulo Financeiro
             </h2>
-            <span className={`text-[9px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${
-              syncStatus === 'error'
-                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                : syncStatus === 'synced'
-                  ? 'bg-[#00ff87]/10 text-[#00ff87] border border-[#00ff87]/30'
-                  : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
-            }`}>
-              {syncStatus === 'syncing' ? 'Sincronizando...' : syncStatus === 'synced' ? 'Google Sheets conectado' : syncStatus === 'error' ? 'Erro na sincronização' : 'Planilha não configurada'}
-            </span>
+            <SyncStatusBadge
+              status={syncStatus}
+              lastSavedAt={lastSavedAt}
+              error={syncError}
+              onRetry={handleManualRetry}
+            />
           </div>
 
           <div className="flex items-center gap-4">
@@ -689,12 +843,12 @@ export default function App() {
                   onAddRecurring={handleAddRecurring}
                   onEditRecurring={handleEditRecurring}
                   onDeleteRecurring={handleDeleteRecurring}
-                  sheetsConfig={sheetsConfig}
-                  onSaveSheetsConfig={(config) => {
-                    setSheetsConfig(config);
-                    setSyncRetry(value => value + 1);
-                  }}
+                  session={session}
+                  onLogout={handleLogout}
                   syncStatus={syncStatus}
+                  syncError={syncError}
+                  lastSavedAt={lastSavedAt}
+                  onTriggerSync={handleManualRetry}
                 />
               )}
             </>

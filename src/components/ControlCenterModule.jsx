@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Settings2,
   CreditCard,
@@ -14,12 +14,17 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Cloud
+  Cloud,
+  LogOut,
+  RefreshCw,
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import BankIcon from './BankIcon';
 import CardVisual from './CardVisual';
 import SmartEmojiPicker from './SmartEmojiPicker';
 import CurrencyInput from './CurrencyInput';
+import SyncStatusBadge from './SyncStatusBadge';
 import { 
   PRESET_BANK_ICONS, 
   PRESET_CARD_IMAGES, 
@@ -687,7 +692,7 @@ const MODULES = [
   { id: 'accounts',  label: 'Contas Bancárias',        icon: Landmark,   color: 'cyan',   description: 'Bancos, carteiras e ícones PNG' },
   { id: 'categories',label: 'Categorias',              icon: Tag,        color: 'emerald',description: 'Entradas e saídas por categoria' },
   { id: 'recurring', label: 'Gastos & Rendas Vigentes',icon: Repeat2,    color: 'amber',  description: 'Despesas fixas e rendas recorrentes' },
-  { id: 'sheets',    label: 'Google Sheets',           icon: Cloud,      color: 'cyan',   description: 'Configure sincronização entre dispositivos' },
+  { id: 'sheets',    label: 'Google Sheets',           icon: Cloud,      color: 'cyan',   description: 'Status da sincronização e conta Google' },
 ];
 
 const COLOR_MAP = {
@@ -706,18 +711,12 @@ export default function ControlCenterModule({
   categories, onAddCategory, onEditCategory, onDeleteCategory,
   // Recurring
   recurringItems, onAddRecurring, onEditRecurring, onDeleteRecurring,
-  sheetsConfig, onSaveSheetsConfig, syncStatus,
+  // Google Session & Sync
+  session, onLogout, syncStatus, syncError, lastSavedAt, onTriggerSync,
 }) {
   const [activeModule, setActiveModule] = useState('cards');
-  const [sheetsUrl, setSheetsUrl] = useState(sheetsConfig?.url || '');
-  const [sheetsToken, setSheetsToken] = useState(sheetsConfig?.token || '');
   const mod = MODULES.find(m => m.id === activeModule);
   const colors = COLOR_MAP[mod.color];
-
-  useEffect(() => {
-    setSheetsUrl(sheetsConfig?.url || '');
-    setSheetsToken(sheetsConfig?.token || '');
-  }, [sheetsConfig?.url, sheetsConfig?.token]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -735,25 +734,13 @@ export default function ControlCenterModule({
             Cadastre contas, cartões, categorias e lançamentos com sincronização automática pela planilha
           </p>
         </div>
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold self-start sm:self-auto ${
-          syncStatus === 'error'
-            ? 'bg-red-500/10 border-red-500/20 text-red-300'
-            : syncStatus === 'synced'
-              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-              : 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-        }`}>
-          <div className={`w-2 h-2 rounded-full ${
-            syncStatus === 'error' ? 'bg-red-400' : syncStatus === 'synced' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'
-          }`} />
-          {syncStatus === 'syncing'
-            ? 'Sincronizando...'
-            : syncStatus === 'error'
-              ? 'Falha ao sincronizar'
-              : syncStatus === 'synced'
-                ? 'Google Sheets conectado'
-                : sheetsConfig?.url
-                  ? 'Aguardando sincronização'
-                  : 'Modo local'}
+        <div className="self-start sm:self-auto">
+          <SyncStatusBadge
+            status={syncStatus}
+            lastSavedAt={lastSavedAt}
+            error={syncError}
+            onRetry={onTriggerSync}
+          />
         </div>
       </div>
 
@@ -808,54 +795,115 @@ export default function ControlCenterModule({
           <RecurringManager items={recurringItems} onAdd={onAddRecurring} onEdit={onEditRecurring} onDelete={onDeleteRecurring} />
         )}
         {activeModule === 'sheets' && (
-          <form
-            className="max-w-2xl space-y-4"
-            onSubmit={event => {
-              event.preventDefault();
-              onSaveSheetsConfig({ url: sheetsUrl.trim(), token: sheetsToken.trim() });
-            }}
-          >
-            <label className="block">
-              <span className={labelCls}>URL do Web App do Apps Script</span>
-              <input
-                className={inputCls}
-                type="url"
-                required
-                value={sheetsUrl}
-                onChange={event => setSheetsUrl(event.target.value)}
-                placeholder="https://script.google.com/macros/s/.../exec"
-              />
-            </label>
-            <label className="block">
-              <span className={labelCls}>Token de acesso</span>
-              <input
-                className={inputCls}
-                type="password"
-                required
-                value={sheetsToken}
-                onChange={event => setSheetsToken(event.target.value)}
-                autoComplete="new-password"
-                placeholder="O mesmo token definido em Code.gs"
-              />
-            </label>
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/80">
-              Os dados continuam disponíveis no navegador se a conexão cair. A planilha é atualizada automaticamente; outros dispositivos são consultados a cada 15 segundos e ao voltar para esta página. O token fica salvo neste navegador e não substitui controles de acesso fortes.
+          <div className="max-w-2xl space-y-6 animate-fade-in">
+            {/* Card de Usuário Autenticado */}
+            <div className="p-5 rounded-2xl bg-[#0b0f19] border border-[#192234] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg">
+              <div className="flex items-center gap-3.5">
+                {session?.picture ? (
+                  <img
+                    src={session.picture}
+                    alt={session.name || session.email}
+                    className="w-12 h-12 rounded-full border border-cyan-500/30 object-cover shadow-sm"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex items-center justify-center font-bold text-lg">
+                    {session?.email ? session.email.charAt(0).toUpperCase() : 'G'}
+                  </div>
+                )}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-white">
+                      {session?.name || 'Conta Google Autenticada'}
+                    </h4>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      Sessão Ativa
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#94a3b8] font-mono mt-0.5">
+                    {session?.email || 'e-mail autenticado'}
+                  </p>
+                  <p className="text-[11px] text-[#64748b] mt-1">
+                    Token criptografado HMAC-SHA256 válido por 30 dias.
+                  </p>
+                </div>
+              </div>
+
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-bold hover:bg-red-500/20 transition-all cursor-pointer self-start sm:self-auto"
+                >
+                  <LogOut size={14} />
+                  <span>Sair da conta</span>
+                </button>
+              )}
             </div>
-            <button type="submit" className="px-4 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all cursor-pointer">
-              Salvar e conectar
-            </button>
-            <p className={`text-xs ${syncStatus === 'error' ? 'text-red-400' : 'text-[#94a3b8]'}`}>
-              {syncStatus === 'syncing'
-                ? 'Sincronizando dados...'
-                : syncStatus === 'synced'
-                  ? 'Planilha conectada. Contas, cartões, lançamentos, parcelas, recorrências e categorias são sincronizados.'
-                  : syncStatus === 'error'
-                    ? 'Falha ao sincronizar. Confira a URL, o token e se publicou a versão atual do Apps Script.'
-                    : sheetsUrl
-                      ? 'Salve a configuração para conectar a planilha.'
-                      : 'Sem URL, o sistema opera em modo local e mantém o cache neste navegador.'}
-            </p>
-          </form>
+
+            {/* Painel de Status de Sincronização */}
+            <div className="p-5 rounded-2xl bg-[#0b0f19] border border-[#192234] space-y-4 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#192234]">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Status da Sincronização</h4>
+                  <p className="text-xs text-[#94a3b8]">Comunicação direta com a Planilha Google (Apps Script)</p>
+                </div>
+                <SyncStatusBadge
+                  status={syncStatus}
+                  lastSavedAt={lastSavedAt}
+                  error={syncError}
+                  onRetry={onTriggerSync}
+                />
+              </div>
+
+              {syncError && (
+                <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-start gap-2.5">
+                  <AlertCircle size={16} className="shrink-0 text-red-400 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Detalhe do erro:</p>
+                    <p className="text-red-300/90 leading-relaxed font-mono text-[11px] mt-0.5">{syncError}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                <div className="text-xs text-[#64748b]">
+                  {syncStatus === 'syncing' ? (
+                    'Sincronizando dados em segundo plano...'
+                  ) : syncStatus === 'saved' ? (
+                    'Todos os dados locais coincidem com a Planilha Google.'
+                  ) : syncStatus === 'pending' ? (
+                    'Existem alterações pendentes prontas para envio.'
+                  ) : (
+                    'Clique no botão ao lado para forçar uma nova sincronização.'
+                  )}
+                </div>
+                {onTriggerSync && (
+                  <button
+                    type="button"
+                    onClick={onTriggerSync}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all cursor-pointer whitespace-nowrap self-start sm:self-auto"
+                  >
+                    <RefreshCw size={14} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
+                    <span>Sincronizar agora</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Informações da Arquitetura */}
+            <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-xs leading-relaxed text-cyan-200/80 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-cyan-300">
+                <ShieldCheck size={16} />
+                <span>Armazenamento Serverless na sua Planilha</span>
+              </div>
+              <p>
+                O Cérebro Nexus utiliza a sua própria Planilha Google como banco de dados principal. Suas contas bancárias, cartões, faturas parceladas, despesas, receitas, categorias e lançamentos recorrentes são gravados sob bloqueio (LockService) com resolução de conflitos em três vias.
+              </p>
+              <p className="text-[11px] text-cyan-300/70">
+                Não há necessidade de banco de dados pago ou digitação manual de URL/tokens neste dispositivo.
+              </p>
+            </div>
+          </div>
         )}
       </div>
     </div>
