@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { EXPENSE_CATEGORIES } from '../constants/categories';
 import CurrencyInput from './CurrencyInput';
+import FloatingSelect from './FloatingSelect';
 import { generateCreditCardInstallments } from '../lib/creditCardEngine';
 
 export default function CreditCardForm({ 
@@ -240,18 +241,33 @@ export default function CreditCardForm({
               <label className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-1 truncate">
                 Cartão
               </label>
-              <select
-                name="cardId"
+              <FloatingSelect
                 value={formData.cardId}
-                onChange={handleChange}
-                className="w-full h-[38px] bg-[#121927] border border-purple-500/40 rounded-xl px-2.5 text-xs font-semibold text-white focus:outline-none focus:border-purple-400 transition-all cursor-pointer"
-              >
-                {cards.map(c => (
-                  <option key={c.id} value={c.id} className="bg-[#0b0f19] text-white">
-                    💳 {c.name || 'Cartão'} {c.digits ? `(•••• ${c.digits})` : ''}
-                  </option>
-                ))}
-              </select>
+                options={cards.map(card => ({
+                  value: card.id,
+                  label: card.name || 'Cartão',
+                  detail: card.digits ? `•••• ${card.digits}` : '',
+                  leading: <span aria-hidden="true">💳</span>,
+                  triggerLabel: `${card.name || 'Cartão'}${card.digits ? ` (•••• ${card.digits})` : ''}`
+                }))}
+                onChange={(cardId) => {
+                  setFormData(prev => ({ ...prev, cardId }));
+                  if (errors.cardId) {
+                    setErrors(prev => ({ ...prev, cardId: false }));
+                  }
+                }}
+                label="Selecionar Cartão"
+                emptyMessage="Nenhum cartão cadastrado"
+                fallback={selectedCard && (
+                  <>
+                    <span aria-hidden="true">💳</span>
+                    <span className="truncate">{selectedCard.name || 'Cartão'}</span>
+                  </>
+                )}
+                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2.5 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer flex items-center gap-2 ${
+                  errors.cardId ? 'border-red-500' : 'border-purple-500/40 hover:border-purple-400'
+                }`}
+              />
             </div>
 
             {/* 3. CATEGORIA */}

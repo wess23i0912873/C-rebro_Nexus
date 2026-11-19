@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   PlusCircle, 
   CheckCircle2, 
@@ -10,6 +10,7 @@ import {
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import BankIcon from './BankIcon';
 import CurrencyInput from './CurrencyInput';
+import FloatingSelect from './FloatingSelect';
 import { findBankPreset } from '../constants/assetOptions';
 
 function getBankBadge(acc) {
@@ -45,25 +46,10 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
     status: 'paid'
   });
 
-  // Estado para controle da dropdown customizada da Conta Bancária
-  const [isAccountOpen, setIsAccountOpen] = useState(false);
-  const accountDropdownRef = useRef(null);
-
   // Estados de Validação Personalizada
   const [errors, setErrors] = useState({});
   const [missingFields, setMissingFields] = useState([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
-
-  // Fechar dropdown de conta se clicar fora
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
-        setIsAccountOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Categorias dinâmicas filtradas pelo Tipo (Saída vs Entrada)
   const currentCategories = formData.type === 'income' 
@@ -354,56 +340,45 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
             </div>
           </div>
         ) : (
-          <div className="flex flex-col w-[54px] shrink-0 relative z-40" ref={accountDropdownRef}>
+          <div className="flex flex-col w-[54px] shrink-0 relative z-40">
             <label className="text-[10px] font-bold text-[#94a3b8] uppercase tracking-wider mb-1 text-center truncate">
               Conta
             </label>
-            <div className="relative z-50">
-              <button
-                type="button"
-                onClick={() => setIsAccountOpen(!isAccountOpen)}
-                className={`w-full h-[38px] rounded-xl bg-[#121927] border ${
-                  errors.accountId 
-                    ? 'border-red-500 animate-pulse bg-red-950/20' 
-                    : 'border-[#192234] hover:border-[#00ff87]/50'
-                } flex items-center justify-center transition-all cursor-pointer`}
-                title={selectedAccountObj?.name || 'Selecionar Conta'}
-              >
-                <BankIcon 
-                  src={selectedAccountObj?.icon || selectedAccountObj?.image} 
-                  bankName={selectedAccountObj?.name} 
-                  size="sm" 
+            <FloatingSelect
+              value={formData.accountId}
+              options={bankAccounts.map(acc => ({
+                value: acc.id,
+                label: acc.name,
+                leading: (
+                  <BankIcon
+                    src={acc.icon || acc.image}
+                    bankName={acc.name}
+                    size="sm"
+                  />
+                )
+              }))}
+              onChange={(accountId) => {
+                setFormData(prev => ({ ...prev, accountId }));
+                if (errors.accountId) {
+                  setErrors(prev => ({ ...prev, accountId: false }));
+                }
+              }}
+              label="Selecionar Conta"
+              emptyMessage="Nenhuma conta cadastrada"
+              fallback={(
+                <BankIcon
+                  src={selectedAccountObj?.icon || selectedAccountObj?.image}
+                  bankName={selectedAccountObj?.name}
+                  size="sm"
                 />
-              </button>
-
-              {/* Menu Suspenso Flutuante (z-[100]) */}
-              {isAccountOpen && (
-                <div className="absolute top-full left-0 mt-1 z-[100] w-60 rounded-xl bg-[#0b0f19] border border-[#192234] shadow-[0_10px_40px_rgba(0,0,0,0.95)] p-1.5 space-y-1">
-                  {bankAccounts.map(acc => {
-                    const isSelected = formData.accountId === acc.id;
-                    return (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData(prev => ({ ...prev, accountId: acc.id }));
-                          setIsAccountOpen(false);
-                          if (errors.accountId) {
-                            setErrors(prev => ({ ...prev, accountId: false }));
-                          }
-                        }}
-                        className={`w-full flex items-center gap-2.5 p-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                          isSelected ? 'bg-[#00ff87]/15 text-[#00ff87] border border-[#00ff87]/30' : 'text-white hover:bg-[#121927]'
-                        }`}
-                      >
-                        <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
-                        <span className="truncate">{acc.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
               )}
-            </div>
+              className={`w-full h-[38px] rounded-xl bg-[#121927] border ${
+                errors.accountId
+                  ? 'border-red-500 animate-pulse bg-red-950/20'
+                  : 'border-[#192234] hover:border-[#00ff87]/50'
+              } flex items-center justify-center transition-all cursor-pointer`}
+              title={selectedAccountObj?.name || 'Selecionar Conta'}
+            />
           </div>
         )}
 
