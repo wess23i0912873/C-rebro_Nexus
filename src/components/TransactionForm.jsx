@@ -298,20 +298,25 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
               <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1 truncate">
                 Conta Origem
               </label>
-              <select
-                name="accountId"
+              <FloatingSelect
                 value={formData.accountId}
-                onChange={handleChange}
-                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer ${
+                options={bankAccounts.map(acc => ({
+                  value: acc.id,
+                  label: acc.name,
+                  leading: <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                }))}
+                onChange={(accountId) => {
+                  setFormData(prev => ({ ...prev, accountId }));
+                  if (errors.accountId) {
+                    setErrors(prev => ({ ...prev, accountId: false }));
+                  }
+                }}
+                label="Selecionar Conta de Origem"
+                emptyMessage="Nenhuma conta cadastrada"
+                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer flex items-center gap-2 ${
                   errors.accountId ? 'border-red-500 bg-red-950/20' : 'border-cyan-500/40 focus:border-cyan-400'
                 }`}
-              >
-                {bankAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="h-[38px] flex items-center justify-center text-cyan-400 px-0.5">
@@ -323,20 +328,25 @@ export default function TransactionForm({ bankAccounts = [], categories = [], on
               <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1 truncate">
                 Conta Destino
               </label>
-              <select
-                name="destinationAccountId"
+              <FloatingSelect
                 value={formData.destinationAccountId}
-                onChange={handleChange}
-                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer ${
+                options={bankAccounts.map(acc => ({
+                  value: acc.id,
+                  label: acc.name,
+                  leading: <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                }))}
+                onChange={(destinationAccountId) => {
+                  setFormData(prev => ({ ...prev, destinationAccountId }));
+                  if (errors.destinationAccountId) {
+                    setErrors(prev => ({ ...prev, destinationAccountId: false }));
+                  }
+                }}
+                label="Selecionar Conta de Destino"
+                emptyMessage="Nenhuma conta cadastrada"
+                className={`w-full h-[38px] bg-[#121927] border rounded-xl px-2 text-xs font-semibold text-white focus:outline-none transition-all cursor-pointer flex items-center gap-2 ${
                   errors.destinationAccountId ? 'border-red-500 bg-red-950/20' : 'border-cyan-500/40 focus:border-cyan-400'
                 }`}
-              >
-                {bankAccounts.map(acc => (
-                  <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                    {acc.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
         ) : (

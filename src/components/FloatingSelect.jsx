@@ -24,6 +24,14 @@ function getMenuPosition(anchor, optionCount) {
   };
 }
 
+function hasSameValue(left, right) {
+  return left !== undefined
+    && left !== null
+    && right !== undefined
+    && right !== null
+    && String(left) === String(right);
+}
+
 export default function FloatingSelect({
   value,
   options = [],
@@ -38,7 +46,7 @@ export default function FloatingSelect({
   const [position, setPosition] = useState(null);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
-  const selectedOption = options.find(option => option.value === value);
+  const selectedOption = options.find(option => hasSameValue(option.value, value));
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -88,7 +96,7 @@ export default function FloatingSelect({
       {options.length === 0 ? (
         <p className="px-2 py-2 text-xs text-[#64748b]">{emptyMessage}</p>
       ) : options.map(option => {
-        const isSelected = option.value === value;
+        const isSelected = hasSameValue(option.value, value);
         return (
           <button
             key={option.value}

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { X, Check, AlertCircle, Edit3 } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../constants/categories';
 import CurrencyInput from './CurrencyInput';
+import BankIcon from './BankIcon';
+import FloatingSelect from './FloatingSelect';
 
 export default function EditTransactionModal({ 
   transaction, 
@@ -219,36 +221,56 @@ export default function EditTransactionModal({
                   <label className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
                     Conta de Origem
                   </label>
-                  <select
-                    name="accountId"
+                  <FloatingSelect
                     value={formData.accountId}
-                    onChange={handleChange}
-                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer"
-                  >
-                    {bankAccounts.map(acc => (
-                      <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                        {acc.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={bankAccounts.map(acc => ({
+                      value: acc.id,
+                      label: acc.name,
+                      leading: <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                    }))}
+                    onChange={(accountId) => {
+                      setFormData(prev => ({ ...prev, accountId }));
+                      setErrorMsg('');
+                    }}
+                    label="Selecionar Conta de Origem"
+                    emptyMessage="Nenhuma conta cadastrada"
+                    fallback={(
+                      <BankIcon
+                        src={bankAccounts.find(acc => String(acc.id) === String(formData.accountId))?.icon}
+                        bankName={bankAccounts.find(acc => String(acc.id) === String(formData.accountId))?.name}
+                        size="sm"
+                      />
+                    )}
+                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer flex items-center gap-2"
+                  />
                 </div>
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider">
                     Conta de Destino
                   </label>
-                  <select
-                    name="destinationAccountId"
+                  <FloatingSelect
                     value={formData.destinationAccountId}
-                    onChange={handleChange}
-                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer"
-                  >
-                    {bankAccounts.map(acc => (
-                      <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                        {acc.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={bankAccounts.map(acc => ({
+                      value: acc.id,
+                      label: acc.name,
+                      leading: <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                    }))}
+                    onChange={(destinationAccountId) => {
+                      setFormData(prev => ({ ...prev, destinationAccountId }));
+                      setErrorMsg('');
+                    }}
+                    label="Selecionar Conta de Destino"
+                    emptyMessage="Nenhuma conta cadastrada"
+                    fallback={(
+                      <BankIcon
+                        src={bankAccounts.find(acc => String(acc.id) === String(formData.destinationAccountId))?.icon}
+                        bankName={bankAccounts.find(acc => String(acc.id) === String(formData.destinationAccountId))?.name}
+                        size="sm"
+                      />
+                    )}
+                    className="w-full h-10 bg-[#121927] border border-cyan-500/30 rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-cyan-400 transition-all cursor-pointer flex items-center gap-2"
+                  />
                 </div>
               </>
             ) : (
@@ -256,18 +278,28 @@ export default function EditTransactionModal({
                 <label className="text-[11px] font-bold text-[#94a3b8] uppercase tracking-wider">
                   Conta Bancária
                 </label>
-                <select
-                  name="accountId"
+                <FloatingSelect
                   value={formData.accountId}
-                  onChange={handleChange}
-                  className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer"
-                >
-                  {bankAccounts.map(acc => (
-                    <option key={acc.id} value={acc.id} className="bg-[#0b0f19] text-white">
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
+                  options={bankAccounts.map(acc => ({
+                    value: acc.id,
+                    label: acc.name,
+                    leading: <BankIcon src={acc.icon || acc.image} bankName={acc.name} size="sm" />
+                  }))}
+                  onChange={(accountId) => {
+                    setFormData(prev => ({ ...prev, accountId }));
+                    setErrorMsg('');
+                  }}
+                  label="Selecionar Conta Bancária"
+                  emptyMessage="Nenhuma conta cadastrada"
+                  fallback={(
+                    <BankIcon
+                      src={bankAccounts.find(acc => String(acc.id) === String(formData.accountId))?.icon}
+                      bankName={bankAccounts.find(acc => String(acc.id) === String(formData.accountId))?.name}
+                      size="sm"
+                    />
+                  )}
+                  className="w-full h-10 bg-[#121927] border border-[#192234] rounded-xl px-3 text-xs font-medium text-white focus:outline-none focus:border-[#00ff87] transition-all cursor-pointer flex items-center gap-2"
+                />
               </div>
             )}
 
