@@ -53,13 +53,9 @@ function setupSpreadsheet() {
     ensureSheet_(entity, spreadsheet);
   });
 
-  // Aciona a solicitação de autorização do escopo script.external_request (UrlFetchApp)
-  try {
-    UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
-    Logger.log('Permissões concedidas com sucesso! Planilha e chamadas externas autorizadas.');
-  } catch (e) {
-    Logger.log('Nota UrlFetchApp: ' + e.message);
-  }
+  // Executa uma chamada UrlFetchApp diretamente para registrar a autorização de rede do script
+  UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
+  Logger.log('Permissões concedidas com sucesso! Planilha e chamadas externas autorizadas.');
 }
 
 /**
