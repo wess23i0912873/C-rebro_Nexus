@@ -43,6 +43,16 @@ const SHEETS = {
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Função simples para acionar a autorização de rede externa (UrlFetchApp).
+ * Se o Google não abrir a janela automaticamente, verifique se o navegador
+ * não bloqueou o pop-up na barra de endereço.
+ */
+function autorizarRede() {
+  UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
+  Logger.log('Permissão UrlFetchApp autorizada com sucesso!');
+}
+
+/**
  * Cria ou garante a existência das abas e cabeçalhos na planilha ativa,
  * e aciona a autorização de todos os escopos necessários (Planilhas e UrlFetchApp).
  * Execute esta função uma vez no editor do Apps Script e clique em "Revisar permissões".
