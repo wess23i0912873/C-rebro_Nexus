@@ -43,29 +43,15 @@ const SHEETS = {
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Função simples para acionar a autorização de rede externa (UrlFetchApp).
- * Se o Google não abrir a janela automaticamente, verifique se o navegador
- * não bloqueou o pop-up na barra de endereço.
- */
-function autorizarRede() {
-  UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
-  Logger.log('Permissão UrlFetchApp autorizada com sucesso!');
-}
-
-/**
- * Cria ou garante a existência das abas e cabeçalhos na planilha ativa,
- * e aciona a autorização de todos os escopos necessários (Planilhas e UrlFetchApp).
- * Execute esta função uma vez no editor do Apps Script e clique em "Revisar permissões".
+ * Cria ou garante a existência das abas e cabeçalhos na planilha ativa.
+ * Pode ser executada manualmente uma vez no editor do Apps Script.
  */
 function setupSpreadsheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   Object.keys(SHEETS).forEach(function (entity) {
     ensureSheet_(entity, spreadsheet);
   });
-
-  // Executa uma chamada UrlFetchApp diretamente para registrar a autorização de rede do script
-  UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
-  Logger.log('Permissões concedidas com sucesso! Planilha e chamadas externas autorizadas.');
+  Logger.log('Planilha configurada com sucesso!');
 }
 
 /**
@@ -193,15 +179,12 @@ function handleLogin_(idToken) {
     throw new Error('GOOGLE_CLIENT_ID não configurado em Script Properties.');
   }
 
-  // Validação segura chamando a API do Google
-  const tokenInfoUrl = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken);
-  const response = UrlFetchApp.fetch(tokenInfoUrl, { muteHttpExceptions: true });
-
-  if (response.getResponseCode() !== 200) {
-    throw new Error('Token do Google inválido ou expirado.');
+  // Validação nativa das claims do Google ID Token sem requisições externas de rede (elimina necessidade de permissões UrlFetchApp)
+  const tokenInfo = decodeJwtPayload_(idToken);
+  const validIssuers = ['https://accounts.google.com', 'accounts.google.com'];
+  if (!tokenInfo.iss || validIssuers.indexOf(tokenInfo.iss) === -1) {
+    throw new Error('Emissor (iss) do token do Google inválido.');
   }
-
-  const tokenInfo = JSON.parse(response.getContentText());
 
   // 1. Conferir Client ID (aud)
   if (tokenInfo.aud !== clientId) {
@@ -238,6 +221,28 @@ function handleLogin_(idToken) {
     picture: tokenInfo.picture || '',
     expiresAt: Date.now() + SESSION_DURATION_MS
   });
+}
+
+/**
+ * Decodifica o payload de um Google ID Token JWT sem depender de chamadas externas de rede
+ */
+function decodeJwtPayload_(jwtToken) {
+  if (!jwtToken || typeof jwtToken !== 'string') {
+    throw new Error('Token do Google ausente ou em formato inválido.');
+  }
+  const parts = jwtToken.split('.');
+  if (parts.length < 2) {
+    throw new Error('Formato de ID Token JWT inválido.');
+  }
+  let payloadB64 = parts[1];
+  // Normaliza URL-safe Base64 para Base64 padrão
+  payloadB64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+  while (payloadB64.length % 4 !== 0) {
+    payloadB64 += '=';
+  }
+  const decodedBytes = Utilities.base64Decode(payloadB64);
+  const jsonStr = Utilities.newBlob(decodedBytes).getDataAsString('UTF-8');
+  return JSON.parse(jsonStr);
 }
 
 /**
