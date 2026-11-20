@@ -43,14 +43,23 @@ const SHEETS = {
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * Cria ou garante a existência das abas e cabeçalhos na planilha ativa.
- * Pode ser executada manualmente uma vez no editor do Apps Script.
+ * Cria ou garante a existência das abas e cabeçalhos na planilha ativa,
+ * e aciona a autorização de todos os escopos necessários (Planilhas e UrlFetchApp).
+ * Execute esta função uma vez no editor do Apps Script e clique em "Revisar permissões".
  */
 function setupSpreadsheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   Object.keys(SHEETS).forEach(function (entity) {
     ensureSheet_(entity, spreadsheet);
   });
+
+  // Aciona a solicitação de autorização do escopo script.external_request (UrlFetchApp)
+  try {
+    UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', { muteHttpExceptions: true });
+    Logger.log('Permissões concedidas com sucesso! Planilha e chamadas externas autorizadas.');
+  } catch (e) {
+    Logger.log('Nota UrlFetchApp: ' + e.message);
+  }
 }
 
 /**
